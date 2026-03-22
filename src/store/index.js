@@ -5,6 +5,7 @@ import cartReducer from './slices/cartSlice';
 import orderReducer from './slices/orderSlice';
 import userReducer from './slices/userSlice';
 import adminReducer from './slices/adminSlice';
+import reviewReducer from './slices/reviewSlice';
 
 export const store = configureStore({
   reducer: {
@@ -14,6 +15,7 @@ export const store = configureStore({
     orders: orderReducer,
     users: userReducer,
     admin: adminReducer,
+    reviews: reviewReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput, Image, Alert } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
-import { updateProfile } from '../../store/slices/userSlice';
+import { useFocusEffect } from '@react-navigation/native';
+import { updateProfile } from '../../store/slices/authSlice';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 
 export default function EditProfileScreen({ navigation }) {
   const dispatch = useDispatch();
@@ -13,6 +15,13 @@ export default function EditProfileScreen({ navigation }) {
   const [phone, setPhone] = useState(user?.phone || '');
   const [profileImage, setProfileImage] = useState(user?.profileImage || null);
   const [loading, setLoading] = useState(false);
+
+  // Update profile image when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      setProfileImage(user?.profileImage || null);
+    }, [user?.profileImage])
+  );
 
   const handleSave = () => {
     if (!name.trim()) {
@@ -41,10 +50,27 @@ export default function EditProfileScreen({ navigation }) {
     Alert.alert('Change Password', 'Password change functionality would be implemented here.');
   };
 
+  const handlePickProfileImage = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: [ImagePicker.MediaType.IMAGE],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled) {
+        setProfileImage(result.assets[0].uri);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to pick image: ' + error.message);
+    }
+  };
+
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.imageContainer}>
-        <TouchableOpacity>
+        <TouchableOpacity onPress={handlePickProfileImage}>
           {profileImage ? (
             <Image source={{ uri: profileImage }} style={styles.profileImage} />
           ) : (
@@ -56,8 +82,8 @@ export default function EditProfileScreen({ navigation }) {
             <Ionicons name="camera" size={20} color="#fff" />
           </View>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.changePhotoText}>
-          <Text style={styles.changePhotoText}>Change Photo</Text>
+        <TouchableOpacity style={styles.changePhotoButton} onPress={handlePickProfileImage}>
+          <Text style={styles.changePhotoButtonText}>Change Photo</Text>
         </TouchableOpacity>
       </View>
 
@@ -138,6 +164,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  changePhotoButton: {
+    marginTop: 10,
+  },
+  changePhotoButtonText: {
+    color: '#007AFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
   cameraButton: {
     position: 'absolute',

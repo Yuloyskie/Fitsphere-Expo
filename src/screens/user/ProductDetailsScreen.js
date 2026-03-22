@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, Image, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
+import { useFocusEffect } from '@react-navigation/native';
 import { fetchProductById } from '../../store/slices/productSlice';
 import { addToCart } from '../../store/slices/cartSlice';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,6 +18,13 @@ export default function ProductDetailsScreen({ route, navigation }) {
     dispatch(fetchProductById(productId));
   }, [dispatch, productId]);
 
+  // Refetch product when screen comes into focus (after reviewing)
+  useFocusEffect(
+    React.useCallback(() => {
+      dispatch(fetchProductById(productId));
+    }, [dispatch, productId])
+  );
+
   useEffect(() => {
     if (selectedProduct?.sizes?.length > 0) {
       setSelectedSize(selectedProduct.sizes[0]);
@@ -24,19 +32,20 @@ export default function ProductDetailsScreen({ route, navigation }) {
   }, [selectedProduct]);
 
   const handleAddToCart = () => {
-    if (!selectedSize) {
+    // Only check size if product has sizes defined
+    if (selectedProduct?.sizes?.length > 0 && !selectedSize) {
       Alert.alert('Error', 'Please select a size');
       return;
     }
-    dispatch(addToCart({ product: selectedProduct, quantity, size: selectedSize }));
+    dispatch(addToCart({ product: selectedProduct, quantity, size: selectedProduct?.sizes?.length > 0 ? selectedSize : '' }));
     Alert.alert('Success', 'Product added to cart!', [
       { text: 'Continue Shopping', style: 'cancel' },
-      { text: 'View Cart', onPress: () => navigation.navigate('Cart') },
+      { text: 'View Cart', onPress: () => navigation.navigate('UserDrawer', { screen: 'Home', params: { screen: 'Cart' } }) },
     ]);
   };
 
   const handleReview = () => {
-    navigation.navigate('Reviews', { productId: selectedProduct.id });
+    navigation.navigate('ProductReviews', { productId: selectedProduct.id });
   };
 
   if (loading || !selectedProduct) {

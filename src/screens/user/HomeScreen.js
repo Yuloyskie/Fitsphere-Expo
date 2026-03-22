@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Image, ScrollView, RefreshControl } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Image, ScrollView, RefreshControl, Modal } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchProducts, fetchCategories, fetchProductsByCategory, setSelectedCategory } from '../../store/slices/productSlice';
 import { Ionicons } from '@expo/vector-icons';
+import LoadingComponent from '../../components/LoadingComponent';
 
 export default function HomeScreen({ navigation }) {
   const dispatch = useDispatch();
   const { products, categories, filteredProducts, selectedCategory, loading } = useSelector(state => state.products);
   const [refreshing, setRefreshing] = useState(false);
+  const [showSale, setShowSale] = useState(false);
 
   useEffect(() => {
     dispatch(fetchProducts());
@@ -26,8 +28,16 @@ export default function HomeScreen({ navigation }) {
   };
 
   const handleCategoryPress = (categoryId) => {
+    setShowSale(false);
     dispatch(setSelectedCategory(categoryId));
   };
+
+  const handleShopNow = () => {
+    setShowSale(true);
+  };
+
+  // Filter products based on sale status
+  const displayedProducts = showSale ? products.filter(p => p.sale === true) : filteredProducts;
 
   const renderCategoryItem = ({ item }) => (
     <TouchableOpacity 
@@ -74,46 +84,57 @@ color={selectedCategory === item.id ? '#fff' : '#000000'}
       {/* Banner */}
       <View style={styles.banner}>
         <View style={styles.bannerContent}>
-          <Text style={styles.bannerTitle}>Summer Sale</Text>
+          <Text style={styles.bannerTitle}>SALE!!!!!</Text>
           <Text style={styles.bannerSubtitle}>Up to 40% Off</Text>
-          <TouchableOpacity style={styles.bannerButton}>
+          <TouchableOpacity style={styles.bannerButton} onPress={handleShopNow}>
             <Text style={styles.bannerButtonText}>Shop Now</Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Categories */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Categories</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Categories')}>
-            <Text style={styles.seeAll}>See All</Text>
-          </TouchableOpacity>
-        </View>
-        <FlatList
-          data={[{ id: 'all', name: 'All', icon: 'apps' }, ...categories]}
-          renderItem={renderCategoryItem}
-          keyExtractor={item => item.id}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-        />
-      </View>
+      {!showSale && (
+        <>
+          {/* Categories */}
+          <View style={styles.categoriesSection}>
+            <FlatList
+              data={[{ id: 'all', name: 'All', icon: 'apps' }, ...categories]}
+              renderItem={renderCategoryItem}
+              keyExtractor={item => item.id}
+              scrollEnabled={true}
+              nestedScrollEnabled={true}
+              style={styles.categoriesList}
+            />
+          </View>
 
-      {/* Featured Products */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>
-            {selectedCategory === 'all' ? 'All Products' : categories.find(c => c.id === selectedCategory)?.name || 'Products'}
-          </Text>
+          {/* Featured Products */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>
+                {selectedCategory === 'all' ? 'All Products' : categories.find(c => c.id === selectedCategory)?.name || 'Products'}
+              </Text>
+            </View>
+          </View>
+        </>
+      )}
+
+      {showSale && (
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <TouchableOpacity onPress={() => setShowSale(false)}>
+              <Ionicons name="arrow-back" size={24} color="#000000" />
+            </TouchableOpacity>
+            <Text style={styles.sectionTitle}>Sale Products</Text>
+            <View style={{ width: 24 }} />
+          </View>
         </View>
-      </View>
+      )}
     </View>
   );
 
   return (
     <View style={styles.container}>
       <FlatList
-        data={filteredProducts}
+        data={displayedProducts}
         renderItem={renderProductItem}
         keyExtractor={item => item.id}
         numColumns={2}
@@ -121,12 +142,19 @@ color={selectedCategory === item.id ? '#fff' : '#000000'}
         columnWrapperStyle={styles.productRow}
         contentContainerStyle={styles.listContent}
         refreshControl={
-<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#000000']} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#000000']} />
         }
         ListEmptyComponent={
-          loading ? <Text style={styles.emptyText}>Loading products...</Text> : <Text style={styles.emptyText}>No products found</Text>
+          loading ? <LoadingComponent /> : <Text style={styles.emptyText}>No products found</Text>
         }
       />
+      {loading && (
+        <Modal transparent={true} animationType="none" visible={loading}>
+          <View style={styles.loadingOverlay}>
+            <LoadingComponent />
+          </View>
+        </Modal>
+      )}
     </View>
   );
 }
@@ -135,6 +163,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  loadingOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
   },
   listContent: {
     paddingBottom: 20,
@@ -181,29 +215,37 @@ color: '#000000',
     marginBottom: 10,
     paddingHorizontal: 5,
   },
+  categoriesSection: {
+    paddingHorizontal: 10,
+    marginTop: 15,
+    marginBottom: 15,
+  },
+  categoriesContent: {
+    flex: 1,
+    maxHeight: 220,
+  },
+  categoriesList: {
+    flexGrow: 0,
+  },
 sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#333333',
   },
-  seeAll: {
-color: '#000000',
-    fontSize: 14,
-  },
   categoryItem: {
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#fff',
-    paddingVertical: 15,
-    paddingHorizontal: 20,
-    marginRight: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+    marginBottom: 10,
+    marginRight: 0,
     borderRadius: 10,
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
-    minWidth: 80,
   },
   categoryItemActive: {
 backgroundColor: '#000000',

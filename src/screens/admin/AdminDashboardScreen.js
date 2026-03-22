@@ -1,37 +1,63 @@
-import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, Alert } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
-import { logout } from '../../store/slices/adminSlice';
+import { fetchAdminProducts, fetchAllOrders, fetchAllUsers } from '../../store/slices/adminSlice';
+import { fetchAllOrders as fetchOrdersFromOrderSlice } from '../../store/slices/orderSlice';
+import { logout } from '../../store/slices/authSlice';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function AdminDashboardScreen({ navigation }) {
   const dispatch = useDispatch();
-  const admin = useSelector(state => state.admin.admin);
-  const orders = useSelector(state => state.orders.orders);
-  const products = useSelector(state => state.products.products);
-  const users = useSelector(state => state.users?.users || []);
+  const admin = useSelector(state => state.auth.user);
+  const orders = useSelector(state => state.admin.orders);
+  const products = useSelector(state => state.admin.products);
+  const users = useSelector(state => state.admin.users);
+
+  useEffect(() => {
+    dispatch(fetchAllOrders());
+    dispatch(fetchAdminProducts());
+    dispatch(fetchAllUsers());
+  }, [dispatch]);
+
+  const handleViewAllOrders = () => {
+    dispatch(fetchOrdersFromOrderSlice());
+    navigation.navigate('AdminOrders');
+  };
 
   const stats = [
-    { id: 'totalSales', title: 'Total Sales', value: `$${(orders.reduce((acc, o) => acc + o.total, 0)).toFixed(2)}`, icon: 'cash', color: '#4CAF50' },
-    { id: 'totalOrders', title: 'Total Orders', value: orders.length, icon: 'receipt', color: '#2196F3' },
-    { id: 'activeUsers', title: 'Active Users', value: users.length || 125, icon: 'people', color: '#FF9800' },
-    { id: 'totalProducts', title: 'Total Products', value: products.length || 48, icon: 'cube', color: '#9C27B0' },
+    { id: 'totalSales', title: 'Total Sales', value: `$${(orders.reduce((acc, o) => acc + Number(o.total || 0), 0)).toFixed(2)}`, icon: 'cash', color: '#4B5563' },
+    { id: 'totalOrders', title: 'Total Orders', value: orders.length, icon: 'receipt', color: '#FF8C42' },
+    { id: 'activeUsers', title: 'Users', value: users.length, icon: 'people', color: '#6B7280' },
+    { id: 'totalProducts', title: 'Products', value: products.length, icon: 'cube', color: '#FF7A3B' },
   ];
 
   const pendingOrders = orders.filter(o => o.status === 'pending').length;
   const lowStockProducts = products.filter(p => p.stock < 10).length;
 
   const quickActions = [
-    { id: 'users', title: 'Manage Users', icon: 'people-outline', screen: 'AdminUsers' },
-    { id: 'products', title: 'Manage Products', icon: 'cube-outline', screen: 'AdminProducts' },
-    { id: 'orders', title: 'Manage Orders', icon: 'receipt-outline', screen: 'AdminOrders' },
-    { id: 'shipping', title: 'Shipping Rates', icon: 'airplane-outline', screen: 'AdminShipping' },
-    { id: 'reports', title: 'Reports', icon: 'bar-chart-outline', screen: 'AdminReports' },
+    { id: 'users', title: 'Users', icon: 'people-outline', screen: 'AdminUsers' },
+    { id: 'products', title: 'Products', icon: 'cube-outline', screen: 'AdminProducts' },
+    { id: 'promoCodes', title: 'Promos', icon: 'ticket-outline', screen: 'AdminPromoCodes' },
+    { id: 'orders', title: 'Orders', icon: 'receipt-outline', screen: 'AdminOrders' },
+    { id: 'reviews', title: 'Reviews', icon: 'chatbubbles-outline', screen: 'AdminReviews' },
+    { id: 'activities', title: 'Activities', icon: 'bar-chart-outline', screen: 'AdminReports' },
   ];
 
   const handleLogout = () => {
-    dispatch(logout());
-    navigation.replace('AdminLogin');
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out from your admin account?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: () => {
+            dispatch(logout());
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -39,7 +65,7 @@ export default function AdminDashboardScreen({ navigation }) {
       <View style={styles.header}>
         <View>
           <Text style={styles.greeting}>Welcome back,</Text>
-          <Text style={styles.adminName}>{admin?.name || 'Admin'}</Text>
+          <Text style={styles.adminName}>{admin?.fullName || admin?.name || 'Admin'}</Text>
         </View>
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <Ionicons name="log-out-outline" size={24} color="#fff" />
@@ -66,7 +92,7 @@ export default function AdminDashboardScreen({ navigation }) {
             style={styles.alertCard}
             onPress={() => navigation.navigate('AdminOrders')}
           >
-            <View style={[styles.alertIcon, { backgroundColor: '#FF9800' }]}>
+            <View style={[styles.alertIcon, { backgroundColor: '#f59e0b' }]}>
               <Ionicons name="time-outline" size={20} color="#fff" />
             </View>
             <View style={styles.alertContent}>
@@ -104,7 +130,7 @@ export default function AdminDashboardScreen({ navigation }) {
               onPress={() => navigation.navigate(action.screen)}
             >
               <View style={styles.actionIcon}>
-                <Ionicons name={action.icon} size={28} color="#4CAF50" />
+                <Ionicons name={action.icon} size={28} color="#4B5563" />
               </View>
               <Text style={styles.actionTitle}>{action.title}</Text>
             </TouchableOpacity>
@@ -115,7 +141,7 @@ export default function AdminDashboardScreen({ navigation }) {
       <View style={styles.recentOrdersSection}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Recent Orders</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('AdminOrders')}>
+          <TouchableOpacity onPress={handleViewAllOrders}>
             <Text style={styles.viewAllText}>View All</Text>
           </TouchableOpacity>
         </View>
@@ -133,12 +159,12 @@ export default function AdminDashboardScreen({ navigation }) {
               </Text>
             </View>
             <View style={styles.orderRight}>
-              <Text style={styles.orderTotal}>${order.total.toFixed(2)}</Text>
+              <Text style={styles.orderTotal}>${Number(order.total || 0).toFixed(2)}</Text>
               <View style={[styles.statusBadge, { 
-                backgroundColor: order.status === 'pending' ? '#FF9800' : 
-                                 order.status === 'processing' ? '#2196F3' :
-                                 order.status === 'shipped' ? '#9C27B0' :
-                                 order.status === 'delivered' ? '#4CAF50' : '#666'
+                backgroundColor: order.status === 'pending' ? '#f59e0b' : 
+                                 order.status === 'processing' ? '#FF8C42' :
+                                 order.status === 'shipped' ? '#FF7A3B' :
+                                 order.status === 'delivered' ? '#10b981' : '#666'
               }]}>
                 <Text style={styles.statusText}>{order.status}</Text>
               </View>
@@ -163,7 +189,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   header: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#4B5563',
     padding: 20,
     paddingTop: 40,
     flexDirection: 'row',
@@ -311,7 +337,7 @@ const styles = StyleSheet.create({
   },
   viewAllText: {
     fontSize: 14,
-    color: '#4CAF50',
+    color: '#4B5563',
     fontWeight: '600',
   },
   orderItem: {

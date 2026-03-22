@@ -1,53 +1,34 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { apiDelete, apiGet, apiPost, apiPut } from '../../services/api';
 
 export const fetchAllUsers = createAsyncThunk(
   'admin/fetchAllUsers',
   async () => {
-    const usersStr = await AsyncStorage.getItem('users');
-    return usersStr ? JSON.parse(usersStr) : [];
+    const response = await apiGet('/users');
+    return response.users || [];
   }
 );
 
 export const createUser = createAsyncThunk(
   'admin/createUser',
   async (userData) => {
-    const usersStr = await AsyncStorage.getItem('users');
-    const users = usersStr ? JSON.parse(usersStr) : [];
-    const newUser = {
-      id: Date.now().toString(),
-      ...userData,
-      createdAt: new Date().toISOString(),
-    };
-    users.push(newUser);
-    await AsyncStorage.setItem('users', JSON.stringify(users));
-    return newUser;
+    const response = await apiPost('/users', userData);
+    return response.user;
   }
 );
 
 export const updateUser = createAsyncThunk(
   'admin/updateUser',
   async ({ userId, userData }) => {
-    const usersStr = await AsyncStorage.getItem('users');
-    const users = usersStr ? JSON.parse(usersStr) : [];
-    const index = users.findIndex(u => u.id === userId);
-    
-    if (index !== -1) {
-      users[index] = { ...users[index], ...userData };
-      await AsyncStorage.setItem('users', JSON.stringify(users));
-      return users[index];
-    }
-    throw new Error('User not found');
+    const response = await apiPut(`/users/${userId}`, userData);
+    return response.user;
   }
 );
 
 export const deleteUser = createAsyncThunk(
   'admin/deleteUser',
   async (userId) => {
-    const usersStr = await AsyncStorage.getItem('users');
-    let users = usersStr ? JSON.parse(usersStr) : [];
-    users = users.filter(u => u.id !== userId);
-    await AsyncStorage.setItem('users', JSON.stringify(users));
+    await apiDelete(`/users/${userId}`);
     return userId;
   }
 );
@@ -55,58 +36,39 @@ export const deleteUser = createAsyncThunk(
 export const fetchAllOrders = createAsyncThunk(
   'admin/fetchAllOrders',
   async () => {
-    const ordersStr = await AsyncStorage.getItem('orders');
-    return ordersStr ? JSON.parse(ordersStr) : [];
+    const response = await apiGet('/orders');
+    return response.orders || [];
   }
 );
 
 export const fetchAdminProducts = createAsyncThunk(
   'admin/fetchAdminProducts',
   async () => {
-    const productsStr = await AsyncStorage.getItem('adminProducts');
-    return productsStr ? JSON.parse(productsStr) : [];
+    const response = await apiGet('/products');
+    return response.products || [];
   }
 );
 
 export const addProduct = createAsyncThunk(
   'admin/addProduct',
   async (productData) => {
-    const productsStr = await AsyncStorage.getItem('adminProducts');
-    const products = productsStr ? JSON.parse(productsStr) : [];
-    const newProduct = {
-      id: Date.now().toString(),
-      ...productData,
-      createdAt: new Date().toISOString(),
-    };
-    products.push(newProduct);
-    await AsyncStorage.setItem('adminProducts', JSON.stringify(products));
-    return newProduct;
+    const response = await apiPost('/products', productData);
+    return response.product;
   }
 );
 
 export const updateProduct = createAsyncThunk(
   'admin/updateProduct',
   async ({ productId, productData }) => {
-    const productsStr = await AsyncStorage.getItem('adminProducts');
-    const products = productsStr ? JSON.parse(productsStr) : [];
-    const index = products.findIndex(p => p.id === productId);
-    
-    if (index !== -1) {
-      products[index] = { ...products[index], ...productData };
-      await AsyncStorage.setItem('adminProducts', JSON.stringify(products));
-      return products[index];
-    }
-    throw new Error('Product not found');
+    const response = await apiPut(`/products/${productId}`, productData);
+    return response.product;
   }
 );
 
 export const deleteProduct = createAsyncThunk(
   'admin/deleteProduct',
   async (productId) => {
-    const productsStr = await AsyncStorage.getItem('adminProducts');
-    let products = productsStr ? JSON.parse(productsStr) : [];
-    products = products.filter(p => p.id !== productId);
-    await AsyncStorage.setItem('adminProducts', JSON.stringify(products));
+    await apiDelete(`/products/${productId}`);
     return productId;
   }
 );
@@ -114,18 +76,8 @@ export const deleteProduct = createAsyncThunk(
 export const updateShippingRate = createAsyncThunk(
   'admin/updateShippingRate',
   async (rateData) => {
-    const ratesStr = await AsyncStorage.getItem('shippingRates');
-    let rates = ratesStr ? JSON.parse(ratesStr) : [];
-    const index = rates.findIndex(r => r.id === rateData.id);
-    
-    if (index !== -1) {
-      rates[index] = rateData;
-    } else {
-      rates.push({ ...rateData, id: Date.now().toString() });
-    }
-    
-    await AsyncStorage.setItem('shippingRates', JSON.stringify(rates));
-    return rates;
+    const response = await apiPut('/admin/shipping-rates', rateData);
+    return response.shippingRates || [];
   }
 );
 

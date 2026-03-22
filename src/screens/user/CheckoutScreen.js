@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput, Alert } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
-import { createOrder, clearCart, clearCartStorage } from '../../store/slices/cartSlice';
+import { createOrder } from '../../store/slices/orderSlice';
+import { clearCart, clearCartStorage } from '../../store/slices/cartSlice';
 import { selectCartTotal } from '../../store/slices/cartSlice';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -23,7 +24,6 @@ export default function CheckoutScreen({ navigation }) {
     country: 'United States',
   });
 
-  const [paymentMethod, setPaymentMethod] = useState('creditCard');
   const [processing, setProcessing] = useState(false);
 
   const finalTotal = cartTotal - (cartTotal * cartDiscount / 100);
@@ -55,7 +55,6 @@ export default function CheckoutScreen({ navigation }) {
       const result = await dispatch(createOrder({ 
         order: {
           shippingInfo,
-          paymentMethod,
           subtotal: cartTotal,
           discount: cartDiscount,
           total: finalTotal,
@@ -71,8 +70,8 @@ export default function CheckoutScreen({ navigation }) {
         'Order Placed!',
         `Your order #${result.id} has been placed successfully. You will receive a confirmation email shortly.`,
         [
-          { text: 'View Orders', onPress: () => navigation.navigate('OrderHistory') },
-          { text: 'Continue Shopping', onPress: () => navigation.navigate('Home') },
+          { text: 'View Orders', onPress: () => navigation.navigate('UserDrawer', { screen: 'Home', params: { screen: 'Orders' } }) },
+          { text: 'Continue Shopping', onPress: () => navigation.navigate('UserDrawer', { screen: 'Home', params: { screen: 'Shop' } }) },
         ]
       );
     } catch (error) {
@@ -81,13 +80,6 @@ export default function CheckoutScreen({ navigation }) {
       setProcessing(false);
     }
   };
-
-  const paymentMethods = [
-    { id: 'creditCard', name: 'Credit Card', icon: 'card' },
-    { id: 'paypal', name: 'PayPal', icon: 'logo-paypal' },
-    { id: 'applePay', name: 'Apple Pay', icon: 'logo-apple' },
-    { id: 'googlePay', name: 'Google Pay', icon: 'logo-google' },
-  ];
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -177,26 +169,6 @@ export default function CheckoutScreen({ navigation }) {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Payment Method</Text>
-        
-        {paymentMethods.map((method) => (
-          <TouchableOpacity
-            key={method.id}
-            style={[styles.paymentOption, paymentMethod === method.id && styles.paymentOptionActive]}
-            onPress={() => setPaymentMethod(method.id)}
-          >
-            <Ionicons name={method.icon} size={24} color={paymentMethod === method.id ? '#000000' : '#666'} />
-            <Text style={[styles.paymentText, paymentMethod === method.id && styles.paymentTextActive]}>
-              {method.name}
-            </Text>
-            {paymentMethod === method.id && (
-              <Ionicons name="checkmark-circle" size={24} color="#000000" />
-            )}
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      <View style={styles.section}>
         <Text style={styles.sectionTitle}>Order Summary</Text>
         
         {cartItems.map((item) => (
@@ -282,29 +254,6 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
-  },
-  paymentOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 15,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    marginBottom: 10,
-  },
-  paymentOptionActive: {
-    borderColor: '#000000',
-    backgroundColor: '#f9f9f9',
-  },
-  paymentText: {
-    flex: 1,
-    fontSize: 14,
-    color: '#666',
-    marginLeft: 10,
-  },
-  paymentTextActive: {
-    color: '#333333',
-    fontWeight: '600',
   },
   summaryItem: {
     flexDirection: 'row',

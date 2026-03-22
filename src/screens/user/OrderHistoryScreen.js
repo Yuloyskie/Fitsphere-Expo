@@ -56,11 +56,6 @@ export default function OrderHistoryScreen({ navigation }) {
         <Text style={styles.itemCount}>{item.items.length} item(s)</Text>
         <Text style={styles.orderTotal}>${item.total.toFixed(2)}</Text>
       </View>
-
-      <View style={styles.trackingButton}>
-        <Ionicons name="location-outline" size={16} color="#000000" />
-        <Text style={styles.trackingText}>Track Order</Text>
-      </View>
     </TouchableOpacity>
   );
 
@@ -172,21 +167,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#000000',
-  },
-  trackingButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 15,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
-  },
-  trackingText: {
-    fontSize: 14,
-    color: '#000000',
-    fontWeight: '600',
-    marginLeft: 5,
   },
   emptyContainer: {
     flex: 1,

@@ -1,18 +1,29 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert, ImageBackground, Image } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { register, clearError } from '../../store/slices/authSlice';
 
 export default function RegisterScreen({ navigation }) {
-  const [name, setName] = useState('');
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [prevLoading, setPrevLoading] = useState(false);
   const dispatch = useDispatch();
   const { loading, error } = useSelector(state => state.auth);
 
+  // Show success message when registration completes
+  React.useEffect(() => {
+    if (prevLoading && !loading && !error) {
+      Alert.alert('Success', 'Account created! Please login with your credentials.', [
+        { text: 'OK', onPress: () => navigation.navigate('Login') }
+      ]);
+    }
+    setPrevLoading(loading);
+  }, [loading, error, navigation]);
+
   const handleRegister = () => {
-    if (!name || !email || !password || !confirmPassword) {
+    if (!fullName || !email || !password || !confirmPassword) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
@@ -24,7 +35,7 @@ export default function RegisterScreen({ navigation }) {
       Alert.alert('Error', 'Password must be at least 6 characters');
       return;
     }
-    dispatch(register({ name, email, password }));
+    dispatch(register({ fullName, email, password }));
   };
 
   React.useEffect(() => {
@@ -32,16 +43,25 @@ export default function RegisterScreen({ navigation }) {
       Alert.alert('Registration Error', error);
       dispatch(clearError());
     }
-  }, [error]);
+  }, [error, dispatch]);
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    <ImageBackground
+      source={require('../../../images/BackgroundGym.webp')}
+      style={styles.backgroundImage}
+      imageStyle={styles.imageStyle}
     >
+      <KeyboardAvoidingView 
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <Text style={styles.logo}>FitSphere</Text>
+          <Image
+            source={require('../../../images/Logo_title-removebg-preview.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
           <Text style={styles.tagline}>Join Our Fitness Community</Text>
         </View>
 
@@ -53,8 +73,8 @@ export default function RegisterScreen({ navigation }) {
             <Text style={styles.label}>Full Name</Text>
             <TextInput
               style={styles.input}
-              value={name}
-              onChangeText={setName}
+              value={fullName}
+              onChangeText={setFullName}
               placeholder="Enter your full name"
               autoCapitalize="words"
             />
@@ -109,13 +129,20 @@ export default function RegisterScreen({ navigation }) {
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
+  backgroundImage: {
+    flex: 1,
+  },
+  imageStyle: {
+    opacity: 0.7,
+  },
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(255, 255, 255, 0.50)',
   },
   scrollContent: {
     flexGrow: 1,
@@ -127,9 +154,9 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   logo: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    color: '#4CAF50',
+    width: 200,
+    height: 80,
+    marginBottom: 10,
   },
   tagline: {
     fontSize: 14,
@@ -174,7 +201,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   registerButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#000000',
     padding: 15,
     borderRadius: 8,
     alignItems: 'center',
@@ -195,7 +222,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   loginLink: {
-    color: '#4CAF50',
+    color: '#000000',
     fontSize: 14,
     fontWeight: 'bold',
   },

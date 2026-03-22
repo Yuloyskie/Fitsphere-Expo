@@ -59,6 +59,7 @@ const cartSlice = createSlice({
       state.items = state.items.filter(
         item => !(item.product.id === productId && item.size === size)
       );
+      AsyncStorage.setItem('cart', JSON.stringify(state.items));
     },
     updateQuantity: (state, action) => {
       const { productId, size, quantity } = action.payload;
@@ -68,11 +69,13 @@ const cartSlice = createSlice({
       if (item) {
         item.quantity = quantity;
       }
+      AsyncStorage.setItem('cart', JSON.stringify(state.items));
     },
     clearCart: (state) => {
       state.items = [];
       state.promoCode = null;
       state.discount = 0;
+      AsyncStorage.setItem('cart', JSON.stringify(state.items));
     },
     applyPromoCode: (state, action) => {
       const { code, discount } = action.payload;
@@ -82,6 +85,7 @@ const cartSlice = createSlice({
     removePromoCode: (state) => {
       state.promoCode = null;
       state.discount = 0;
+      AsyncStorage.setItem('cart', JSON.stringify(state.items));
     },
   },
   extraReducers: (builder) => {

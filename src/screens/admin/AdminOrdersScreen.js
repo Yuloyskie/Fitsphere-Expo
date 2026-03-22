@@ -1,15 +1,40 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, TextInput, Alert } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, TextInput, Alert, Modal } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
-import { updateOrderStatus } from '../../store/slices/orderSlice';
+import { useFocusEffect } from '@react-navigation/native';
+import { fetchAllOrders, updateOrderStatus, updatePaymentStatus } from '../../store/slices/orderSlice';
 import { Ionicons } from '@expo/vector-icons';
 import notificationService from '../../services/NotificationService';
 
 export default function AdminOrdersScreen({ navigation }) {
   const dispatch = useDispatch();
-  const orders = useSelector(state => state.orders.orders);
+  const orders = useSelector(state => state.orders.allOrders);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedOrderForPayment, setSelectedOrderForPayment] = useState(null);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('🔄 AdminOrdersScreen focused - fetching fresh orders from database...');
+      dispatch(fetchAllOrders());
+    }, [dispatch])
+  );
+
+  // Log when orders change to verify database fetch
+  React.useEffect(() => {
+    if (orders.length > 0) {
+      console.log('✅ Orders fetched from database:', orders.length, 'orders');
+      console.log('📊 Sample order:', {
+        id: orders[0].id,
+        total: orders[0].total,
+        status: orders[0].status,
+        userId: orders[0].userId,
+      });
+    } else {
+      console.log('⚠️  No orders in Redux state');
+    }
+  }, [orders]);
 
   const statuses = ['all', 'pending', 'processing', 'shipped', 'delivered', 'cancelled'];
 
@@ -21,10 +46,10 @@ export default function AdminOrdersScreen({ navigation }) {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'pending': return '#FF9800';
-      case 'processing': return '#2196F3';
-      case 'shipped': return '#9C27B0';
-      case 'delivered': return '#4CAF50';
+      case 'pending': return '#f59e0b';
+      case 'processing': return '#FF8C42';
+      case 'shipped': return '#FF8C42';
+      case 'delivered': return '#10b981';
       case 'cancelled': return '#f44336';
       default: return '#666';
     }
@@ -67,6 +92,11 @@ export default function AdminOrdersScreen({ navigation }) {
       { text: 'Cancel', style: 'cancel' },
       { text: 'Issue Refund', onPress: () => Alert.alert('Success', 'Refund issued successfully') },
     ]);
+  };
+
+  const handleUpdatePaymentStatus = (orderId, newPaymentStatus) => {
+    dispatch(updatePaymentStatus({ orderId, paymentStatus: newPaymentStatus }));
+    Alert.alert('Success', `Payment status updated to "${newPaymentStatus}"`);
   };
 
   const formatDate = (dateString) => {
@@ -113,12 +143,28 @@ export default function AdminOrdersScreen({ navigation }) {
         </View>
       </TouchableOpacity>
 
+      <View style={styles.paymentStatusContainer}>
+        <Text style={styles.paymentStatusLabel}>Payment Status:</Text>
+        <TouchableOpacity 
+          style={styles.paymentStatusDropdown}
+          onPress={() => {
+            setSelectedOrderForPayment(item);
+            setShowPaymentModal(true);
+          }}
+        >
+          <Text style={styles.paymentStatusDropdownText}>
+            {(item.paymentStatus || 'pending').charAt(0).toUpperCase() + (item.paymentStatus || 'pending').slice(1)}
+          </Text>
+          <Ionicons name="chevron-down" size={20} color="#666" />
+        </TouchableOpacity>
+      </View>
+
       <View style={styles.orderActions}>
         {item.status !== 'cancelled' && item.status !== 'delivered' && (
           <View style={styles.statusButtons}>
             {item.status === 'pending' && (
               <TouchableOpacity 
-                style={[styles.statusButton, { backgroundColor: '#2196F3' }]}
+                style={[styles.statusButton, { backgroundColor: '#FF8C42' }]}
                 onPress={() => handleUpdateStatus(item.id, 'processing')}
               >
                 <Text style={styles.statusButtonText}>Process</Text>
@@ -126,7 +172,7 @@ export default function AdminOrdersScreen({ navigation }) {
             )}
             {item.status === 'processing' && (
               <TouchableOpacity 
-                style={[styles.statusButton, { backgroundColor: '#9C27B0' }]}
+                style={[styles.statusButton, { backgroundColor: '#ef4444' }]}
                 onPress={() => handleUpdateStatus(item.id, 'shipped')}
               >
                 <Text style={styles.statusButtonText}>Ship</Text>
@@ -134,7 +180,7 @@ export default function AdminOrdersScreen({ navigation }) {
             )}
             {item.status === 'shipped' && (
               <TouchableOpacity 
-                style={[styles.statusButton, { backgroundColor: '#4CAF50' }]}
+                style={[styles.statusButton, { backgroundColor: '#10b981' }]}
                 onPress={() => handleUpdateStatus(item.id, 'delivered')}
               >
                 <Text style={styles.statusButtonText}>Deliver</Text>
@@ -148,14 +194,14 @@ export default function AdminOrdersScreen({ navigation }) {
             style={styles.actionButton} 
             onPress={() => handleViewOrder(item.id)}
           >
-            <Ionicons name="eye-outline" size={20} color="#2196F3" />
+            <Ionicons name="eye-outline" size={20} color="#4B5563" />
           </TouchableOpacity>
           {(item.status === 'delivered' || item.status === 'cancelled') && (
             <TouchableOpacity 
               style={styles.actionButton} 
               onPress={() => handleIssueRefund(item.id)}
             >
-              <Ionicons name="cash-outline" size={20} color="#FF9800" />
+              <Ionicons name="cash-outline" size={20} color="#4B5563" />
             </TouchableOpacity>
           )}
           {item.status !== 'cancelled' && (
@@ -211,11 +257,11 @@ export default function AdminOrdersScreen({ navigation }) {
           <Text style={styles.statLabel}>Total Orders</Text>
         </View>
         <View style={styles.statItem}>
-          <Text style={[styles.statValue, { color: '#FF9800' }]}>{orders.filter(o => o.status === 'pending').length}</Text>
+          <Text style={[styles.statValue, { color: '#f59e0b' }]}>{orders.filter(o => o.status === 'pending').length}</Text>
           <Text style={styles.statLabel}>Pending</Text>
         </View>
         <View style={styles.statItem}>
-          <Text style={[styles.statValue, { color: '#4CAF50' }]}>{orders.filter(o => o.status === 'delivered').length}</Text>
+          <Text style={[styles.statValue, { color: '#10b981' }]}>{orders.filter(o => o.status === 'delivered').length}</Text>
           <Text style={styles.statLabel}>Delivered</Text>
         </View>
       </View>
@@ -232,6 +278,37 @@ export default function AdminOrdersScreen({ navigation }) {
           </View>
         }
       />
+
+      {/* Payment Status Modal */}
+      <Modal visible={showPaymentModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.paymentStatusModal}>
+            <Text style={styles.modalTitle}>Change Payment Status</Text>
+            {['pending', 'completed', 'failed', 'refunded'].map((status) => (
+              <TouchableOpacity
+                key={status}
+                style={styles.paymentStatusOption}
+                onPress={() => {
+                  if (selectedOrderForPayment) {
+                    handleUpdatePaymentStatus(selectedOrderForPayment.id, status);
+                    setShowPaymentModal(false);
+                  }
+                }}
+              >
+                <Text style={styles.paymentStatusOptionText}>
+                  {status.charAt(0).toUpperCase() + status.slice(1)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity 
+              style={styles.closeButton}
+              onPress={() => setShowPaymentModal(false)}
+            >
+              <Text style={styles.closeButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -274,7 +351,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 5,
   },
   filterChipActive: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#4B5563',
   },
   filterText: {
     fontSize: 14,
@@ -368,7 +445,7 @@ const styles = StyleSheet.create({
   orderTotal: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#4CAF50',
+    color: '#4B5563',
   },
   orderActions: {
     flexDirection: 'row',
@@ -408,5 +485,88 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
     marginTop: 15,
+  },
+  paymentStatusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+  },
+  paymentStatusLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#212121',
+    marginRight: 10,
+  },
+  paymentStatusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+  },
+  paymentStatusDropdown: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FF8C42',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  paymentStatusDropdownText: {
+    fontSize: 14,
+    color: '#212121',
+    fontWeight: '500',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  paymentStatusModal: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 15,
+    borderTopRightRadius: 15,
+    paddingHorizontal: 15,
+    paddingVertical: 20,
+    paddingBottom: 30,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#212121',
+    marginBottom: 15,
+  },
+  paymentStatusOption: {
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  paymentStatusOptionText: {
+    fontSize: 14,
+    color: '#212121',
+    fontWeight: '500',
+  },
+  closeButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+    backgroundColor: '#FF8C42',
+    borderRadius: 8,
+    marginTop: 10,
+    alignItems: 'center',
+  },
+  closeButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
   },
 });

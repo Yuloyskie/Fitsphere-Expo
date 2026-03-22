@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert, ImageBackground, Image } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { login, clearError, googleLogin, facebookLogin } from '../../store/slices/authSlice';
 import { Ionicons } from '@expo/vector-icons';
@@ -36,13 +36,22 @@ export default function LoginScreen({ navigation }) {
   }, [error]);
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    <ImageBackground
+      source={require('../../../images/BackgroundGym.webp')}
+      style={styles.backgroundImage}
+      imageStyle={styles.imageStyle}
     >
+      <KeyboardAvoidingView 
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <Text style={styles.logo}>FitSphere</Text>
+          <Image
+            source={require('../../../images/Logo_title-removebg-preview.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
           <Text style={styles.tagline}>Your Ultimate Fitness Destination</Text>
         </View>
 
@@ -104,13 +113,6 @@ export default function LoginScreen({ navigation }) {
             <Text style={styles.socialButtonText}>Continue with Facebook</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={styles.adminButton} 
-            onPress={() => navigation.navigate('AdminLogin')}
-          >
-            <Text style={styles.adminButtonText}>Admin Login</Text>
-          </TouchableOpacity>
-
           <View style={styles.registerContainer}>
             <Text style={styles.registerText}>Don't have an account? </Text>
             <TouchableOpacity onPress={() => navigation.navigate('Register')}>
@@ -120,13 +122,20 @@ export default function LoginScreen({ navigation }) {
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
+  backgroundImage: {
+    flex: 1,
+  },
+  imageStyle: {
+    opacity: 0.7,
+  },
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(255, 255, 255, 0.50)',
   },
   scrollContent: {
     flexGrow: 1,
@@ -138,9 +147,9 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   logo: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    color: '#000000',
+    width: 200,
+    height: 80,
+    marginBottom: 10,
   },
   tagline: {
     fontSize: 14,
@@ -229,18 +238,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     marginLeft: 10,
-  },
-  adminButton: {
-    backgroundColor: '#FF6B00',
-    padding: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  adminButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
   },
   registerContainer: {
     flexDirection: 'row',

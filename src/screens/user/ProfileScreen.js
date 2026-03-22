@@ -1,13 +1,36 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, Alert } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { logout } from '../../store/slices/authSlice';
 import { Ionicons } from '@expo/vector-icons';
+import notificationService from '../../services/NotificationService';
+import { apiGet } from '../../services/api';
 
 export default function ProfileScreen({ navigation }) {
   const dispatch = useDispatch();
   const user = useSelector(state => state.auth.user);
   const orders = useSelector(state => state.orders.orders);
+  const isAuthenticated = useSelector(state => state.auth.isAuthenticated);
+  const [reviewCount, setReviewCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch review count from database
+  useEffect(() => {
+    const fetchReviewCount = async () => {
+      try {
+        if (user?.id) {
+          const response = await apiGet(`/reviews?userId=${encodeURIComponent(user.id)}`);
+          setReviewCount(response.reviews?.length || 0);
+        }
+      } catch (error) {
+        console.log('Error fetching review count:', error);
+        setReviewCount(0);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchReviewCount();
+  }, [user?.id]);
 
   const handleLogout = () => {
     Alert.alert(
@@ -15,16 +38,58 @@ export default function ProfileScreen({ navigation }) {
       'Are you sure you want to logout?',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Logout', style: 'destructive', onPress: () => dispatch(logout()) },
+        { 
+          text: 'Logout', 
+          style: 'destructive', 
+          onPress: async () => {
+            await dispatch(logout());
+          }
+        },
       ]
     );
   };
 
+  React.useEffect(() => {
+    if (!isAuthenticated) {
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Landing' }],
+      });
+    }
+  }, [isAuthenticated]);
+
+  const availableScreens = ['EditProfile', 'Orders', 'NotificationDetails', 'About', 'Help', 'Notifications', 'Security'];
+
+  const handleMenuPress = async (item) => {
+    if (item.id === 'notifications') {
+      await notificationService.schedulePromotionNotification(
+        'Limited Time Offer',
+        'Get 15% off all cardio equipment today only.',
+        5
+      );
+
+      navigation.navigate('NotificationDetails', {
+        title: 'Promotion Scheduled',
+        body: 'A promotion notification will appear in a few seconds.',
+        data: { type: 'promotion' },
+      });
+      return;
+    }
+
+    if (availableScreens.includes(item.screen)) {
+      navigation.navigate(item.screen);
+      return;
+    }
+
+    Alert.alert('Coming Soon', `${item.title} is not implemented yet.`);
+  };
+
   const menuItems = [
     { id: 'editProfile', title: 'Edit Profile', icon: 'person-outline', screen: 'EditProfile' },
-    { id: 'orders', title: 'My Orders', icon: 'receipt-outline', screen: 'OrderHistory' },
-    { id: 'addresses', title: 'Saved Addresses', icon: 'location-outline', screen: 'Addresses' },
-    { id: 'payment', title: 'Payment Methods', icon: 'card-outline', screen: 'PaymentMethods' },
+    { id: 'orders', title: 'My Orders', icon: 'receipt-outline', screen: 'Orders' },
+    // TODO: Implement in future updates
+    // { id: 'addresses', title: 'Saved Addresses', icon: 'location-outline', screen: 'Addresses' },
+    // { id: 'payment', title: 'Payment Methods', icon: 'card-outline', screen: 'PaymentMethods' },
     { id: 'notifications', title: 'Notifications', icon: 'notifications-outline', screen: 'Notifications' },
     { id: 'security', title: 'Security', icon: 'shield-outline', screen: 'Security' },
     { id: 'help', title: 'Help & Support', icon: 'help-circle-outline', screen: 'Help' },
@@ -34,7 +99,7 @@ export default function ProfileScreen({ navigation }) {
   const stats = [
     { label: 'Orders', value: orders.length },
     { label: 'Wishlist', value: 0 },
-    { label: 'Reviews', value: 0 },
+    { label: 'Reviews', value: reviewCount },
   ];
 
   return (
@@ -70,7 +135,7 @@ export default function ProfileScreen({ navigation }) {
           <TouchableOpacity
             key={item.id}
             style={styles.menuItem}
-            onPress={() => navigation.navigate(item.screen)}
+            onPress={() => handleMenuPress(item)}
           >
             <View style={styles.menuItemLeft}>
               <Ionicons name={item.icon} size={22} color="#000000" />

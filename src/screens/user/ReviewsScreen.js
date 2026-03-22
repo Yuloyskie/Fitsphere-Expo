@@ -1,39 +1,109 @@
-import React, { useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, TextInput, Alert } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, TextInput, Alert, Image, ScrollView, Modal } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
-import { addReview } from '../../store/slices/productSlice';
+import { useFocusEffect } from '@react-navigation/native';
+import { fetchProductById, submitReview, updateReview, deleteReview } from '../../store/slices/productSlice';
 import { Ionicons } from '@expo/vector-icons';
 
-export default function ReviewsScreen({ route, navigation }) {
+export default function ReviewsScreen({ route }) {
   const { productId } = route.params;
   const dispatch = useDispatch();
   const product = useSelector(state => state.products.selectedProduct);
+  const user = useSelector(state => state.auth.user);
+  const orders = useSelector(state => state.orders.orders);
+
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
   const [showReviewForm, setShowReviewForm] = useState(false);
+  const [editingReviewId, setEditingReviewId] = useState(null);
+  const [selectedImages, setSelectedImages] = useState([]);
+  const [showImageGallery, setShowImageGallery] = useState(false);
+  const [galleryImages, setGalleryImages] = useState([]);
+
+  // Refetch reviews whenever screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      dispatch(fetchProductById(productId));
+    }, [dispatch, productId])
+  );
 
   const reviews = product?.reviews || [];
+  const hasVerifiedPurchase = orders.some(order =>
+    order.status === 'delivered' &&
+    order.items?.some(item => item.product.id === productId) &&
+    order.userId === (user?.id || 'guest')
+  );
 
-  const handleSubmitReview = () => {
+  const resetForm = () => {
+    setComment('');
+    setRating(5);
+    setEditingReviewId(null);
+    setShowReviewForm(false);
+  };
+
+  const handleSubmitReview = async () => {
     if (!comment.trim()) {
       Alert.alert('Error', 'Please write a review');
       return;
     }
 
-    const reviewData = {
-      id: Date.now().toString(),
-      userId: 'currentUser',
-      userName: 'User',
+    if (!hasVerifiedPurchase && !editingReviewId) {
+      Alert.alert('Verified purchase required', 'You can only review products from delivered orders.');
+      return;
+    }
+
+    const reviewPayload = {
+      userId: user?.id || 'guest',
+      userName: user?.fullName || user?.name || 'Anonymous User',
+      userProfileImage: user?.profileImage || null,
       rating,
       comment,
       createdAt: new Date().toISOString(),
     };
 
-    dispatch(addReview({ productId, review: reviewData }));
-    Alert.alert('Success', 'Thank you for your review!');
-    setComment('');
-    setRating(5);
-    setShowReviewForm(false);
+    try {
+      if (editingReviewId) {
+        await dispatch(updateReview({
+          productId,
+          reviewId: editingReviewId,
+          userId: user?.id,
+          rating,
+          comment,
+        })).unwrap();
+        Alert.alert('Success', 'Review updated successfully');
+      } else {
+        await dispatch(submitReview({ productId, review: reviewPayload })).unwrap();
+        Alert.alert('Success', 'Thank you for your review!');
+      }
+      resetForm();
+    } catch (error) {
+      Alert.alert('Error', 'Unable to save your review right now.');
+    }
+  };
+
+  const handleEditReview = (review) => {
+    setRating(review.rating);
+    setComment(review.comment);
+    setEditingReviewId(review.id);
+    setShowReviewForm(true);
+  };
+
+  const handleDeleteOwnReview = (reviewId) => {
+    Alert.alert('Delete Review', 'Are you sure you want to delete this review?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await dispatch(deleteReview({ productId, reviewId, userId: user?.id })).unwrap();
+            Alert.alert('Success', 'Review deleted');
+          } catch (error) {
+            Alert.alert('Error', 'Unable to delete review right now.');
+          }
+        },
+      },
+    ]);
   };
 
   const handleReportReview = (reviewId) => {
@@ -49,52 +119,97 @@ export default function ReviewsScreen({ route, navigation }) {
     );
   };
 
-  const renderStars = (itemRating, interactive = false) => {
-    return (
-      <View style={styles.starsContainer}>
-        {[1, 2, 3, 4, 5].map((star) => (
-          <TouchableOpacity
-            key={star}
-            onPress={() => interactive && setRating(star)}
-            disabled={!interactive}
-          >
-            <Ionicons
-              name={star <= itemRating ? 'star' : 'star-outline'}
-              size={interactive ? 30 : 16}
-              color={star <= itemRating ? '#FFD700' : '#ddd'}
-            />
-          </TouchableOpacity>
-        ))}
-      </View>
-    );
-  };
+  const renderStars = (itemRating, interactive = false) => (
+    <View style={styles.starsContainer}>
+      {[1, 2, 3, 4, 5].map((star) => (
+        <TouchableOpacity
+          key={star}
+          onPress={() => interactive && setRating(star)}
+          disabled={!interactive}
+        >
+          <Ionicons
+            name={star <= itemRating ? 'star' : 'star-outline'}
+            size={interactive ? 30 : 16}
+            color={star <= itemRating ? '#FFD700' : '#ddd'}
+          />
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
   };
 
-  const renderReviewItem = ({ item }) => (
-    <View style={styles.reviewCard}>
-      <View style={styles.reviewHeader}>
-        <View style={styles.reviewerInfo}>
-          <View style={styles.reviewerAvatar}>
-            <Text style={styles.reviewerInitial}>{item.userName.charAt(0)}</Text>
+  const renderReviewItem = ({ item }) => {
+    const isOwnReview = item.userId === user?.id;
+
+    const handleImagePress = (images) => {
+      setGalleryImages(images);
+      setShowImageGallery(true);
+    };
+
+    return (
+      <View style={styles.reviewCard}>
+        <View style={styles.reviewHeader}>
+          <View style={styles.reviewerInfo}>
+            {item.userProfileImage ? (
+              <Image source={{ uri: item.userProfileImage }} style={styles.reviewerAvatar} />
+            ) : (
+              <View style={styles.reviewerAvatar}>
+                <Text style={styles.reviewerInitial}>{(item.userName || 'U').charAt(0)}</Text>
+              </View>
+            )}
+            <View>
+              <Text style={styles.reviewerName}>{item.userName || 'Anonymous'}</Text>
+              <Text style={styles.reviewDate}>{formatDate(item.updatedAt || item.createdAt || item.date)}</Text>
+            </View>
           </View>
-          <View>
-            <Text style={styles.reviewerName}>{item.userName}</Text>
-            <Text style={styles.reviewDate}>{formatDate(item.createdAt)}</Text>
-          </View>
+          {renderStars(item.rating)}
         </View>
-        {renderStars(item.rating)}
+        <Text style={styles.reviewComment}>{item.comment}</Text>
+        
+        {item.images && item.images.length > 0 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.reviewImagesContainer}
+          >
+            {item.images.map((image, idx) => (
+              <TouchableOpacity
+                key={idx}
+                onPress={() => handleImagePress(item.images)}
+                style={styles.reviewImageWrapper}
+              >
+                <Image source={{ uri: image }} style={styles.reviewImage} />
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
+        
+        <View style={styles.reviewActions}>
+          {isOwnReview ? (
+            <>
+              <TouchableOpacity style={styles.reportButton} onPress={() => handleEditReview(item)}>
+                <Ionicons name="create-outline" size={14} color="#555" />
+                <Text style={styles.reportText}>Edit</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.reportButton} onPress={() => handleDeleteOwnReview(item.id)}>
+                <Ionicons name="trash-outline" size={14} color="#b00020" />
+                <Text style={[styles.reportText, styles.deleteText]}>Delete</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <TouchableOpacity style={styles.reportButton} onPress={() => handleReportReview(item.id)}>
+              <Ionicons name="flag-outline" size={14} color="#999" />
+              <Text style={styles.reportText}>Report</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
-      <Text style={styles.reviewComment}>{item.comment}</Text>
-      <TouchableOpacity style={styles.reportButton} onPress={() => handleReportReview(item.id)}>
-        <Ionicons name="flag-outline" size={14} color="#999" />
-        <Text style={styles.reportText}>Report</Text>
-      </TouchableOpacity>
-    </View>
-  );
+    );
+  };
 
   const averageRating = reviews.length > 0
     ? (reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length).toFixed(1)
@@ -104,22 +219,29 @@ export default function ReviewsScreen({ route, navigation }) {
     <View style={styles.container}>
       <View style={styles.summaryContainer}>
         <Text style={styles.averageRating}>{averageRating}</Text>
-        {renderStars(Math.round(averageRating))}
+        {renderStars(Math.round(Number(averageRating)))}
         <Text style={styles.totalReviews}>{reviews.length} reviews</Text>
+        {!hasVerifiedPurchase && (
+          <Text style={styles.helperText}>Reviews are available after a delivered purchase.</Text>
+        )}
       </View>
 
       {!showReviewForm ? (
-        <TouchableOpacity style={styles.writeReviewButton} onPress={() => setShowReviewForm(true)}>
+        <TouchableOpacity
+          style={[styles.writeReviewButton, !hasVerifiedPurchase && styles.disabledButton]}
+          onPress={() => setShowReviewForm(true)}
+          disabled={!hasVerifiedPurchase}
+        >
           <Ionicons name="create-outline" size={20} color="#fff" />
           <Text style={styles.writeReviewText}>Write a Review</Text>
         </TouchableOpacity>
       ) : (
         <View style={styles.reviewForm}>
-          <Text style={styles.formTitle}>Write Your Review</Text>
-          
+          <Text style={styles.formTitle}>{editingReviewId ? 'Update Your Review' : 'Write Your Review'}</Text>
+
           <Text style={styles.label}>Rating</Text>
           {renderStars(rating, true)}
-          
+
           <Text style={styles.label}>Your Review</Text>
           <TextInput
             style={styles.reviewInput}
@@ -131,20 +253,13 @@ export default function ReviewsScreen({ route, navigation }) {
             numberOfLines={4}
             textAlignVertical="top"
           />
-          
+
           <View style={styles.formButtons}>
-            <TouchableOpacity
-              style={styles.cancelButton}
-              onPress={() => {
-                setShowReviewForm(false);
-                setComment('');
-                setRating(5);
-              }}
-            >
+            <TouchableOpacity style={styles.cancelButton} onPress={resetForm}>
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.submitButton} onPress={handleSubmitReview}>
-              <Text style={styles.submitButtonText}>Submit</Text>
+              <Text style={styles.submitButtonText}>{editingReviewId ? 'Update' : 'Submit'}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -159,10 +274,38 @@ export default function ReviewsScreen({ route, navigation }) {
           <View style={styles.emptyContainer}>
             <Ionicons name="chatbubbles-outline" size={50} color="#ddd" />
             <Text style={styles.emptyText}>No reviews yet</Text>
-            <Text style={styles.emptySubtext}>Be the first to review this product</Text>
+            <Text style={styles.emptySubtext}>Be the first verified buyer to review this product</Text>
           </View>
         }
       />
+
+      <Modal
+        visible={showImageGallery}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowImageGallery(false)}
+      >
+        <View style={styles.galleryContainer}>
+          <TouchableOpacity
+            style={styles.galleryCloseButton}
+            onPress={() => setShowImageGallery(false)}
+          >
+            <Ionicons name="close" size={30} color="#fff" />
+          </TouchableOpacity>
+          <ScrollView
+            horizontal
+            pagingEnabled
+            style={styles.galleryScroll}
+            contentContainerStyle={styles.galleryContent}
+          >
+            {galleryImages.map((image, idx) => (
+              <View key={idx} style={styles.galleryImageContainer}>
+                <Image source={{ uri: image }} style={styles.galleryImage} />
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -192,6 +335,11 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 5,
   },
+  helperText: {
+    fontSize: 12,
+    color: '#888',
+    marginTop: 8,
+  },
   writeReviewButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -200,6 +348,9 @@ const styles = StyleSheet.create({
     margin: 10,
     padding: 15,
     borderRadius: 10,
+  },
+  disabledButton: {
+    backgroundColor: '#999',
   },
   writeReviewText: {
     color: '#fff',
@@ -311,19 +462,69 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#333333',
     lineHeight: 20,
+    marginBottom: 10,
   },
-  reportButton: {
+  reviewImagesContainer: {
+    marginvertical: 10,
+    marginBottom: 10,
+  },
+  reviewImageWrapper: {
+    marginRight: 10,
+  },
+  reviewImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    resizeMode: 'cover',
+  },
+  reviewActions: {
     flexDirection: 'row',
-    alignItems: 'center',
     marginTop: 10,
     paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: '#eee',
   },
+  reportButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 16,
+  },
   reportText: {
     fontSize: 12,
     color: '#999',
     marginLeft: 5,
+  },
+  deleteText: {
+    color: '#b00020',
+  },
+  galleryContainer: {
+    flex: 1,
+    backgroundColor: '#000',
+    justifyContent: 'center',
+  },
+  galleryCloseButton: {
+    position: 'absolute',
+    top: 40,
+    right: 20,
+    zIndex: 10,
+  },
+  galleryScroll: {
+    flex: 1,
+  },
+  galleryContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  galleryImageContainer: {
+    width: null,
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  galleryImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'contain',
   },
   emptyContainer: {
     alignItems: 'center',

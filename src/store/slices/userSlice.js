@@ -1,16 +1,20 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { apiGet, apiPut } from '../../services/api';
 
 export const updateProfile = createAsyncThunk(
   'user/updateProfile',
-  async ({ name, email, avatar }, { getState }) => {
+  async ({ name, email, avatar, phone, profileImage }, { getState }) => {
     const { auth } = getState();
-    const updatedUser = {
-      ...auth.user,
+    const response = await apiPut(`/users/${auth.user.id}`, {
       name: name || auth.user.name,
       email: email || auth.user.email,
       avatar: avatar || auth.user.avatar,
-    };
+      phone: phone || auth.user.phone || '',
+      profileImage: profileImage || auth.user.profileImage || null,
+    });
+
+    const updatedUser = response.user;
     await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
     return updatedUser;
   }
@@ -33,10 +37,8 @@ export const updatePassword = createAsyncThunk(
 export const fetchUserReviews = createAsyncThunk(
   'user/fetchUserReviews',
   async (userId) => {
-    // In real app, fetch from API
-    const reviewsStr = await AsyncStorage.getItem('reviews');
-    const reviews = reviewsStr ? JSON.parse(reviewsStr) : [];
-    return reviews.filter(r => r.userId === userId);
+    const response = await apiGet(`/reviews?userId=${encodeURIComponent(userId)}`);
+    return response.reviews || [];
   }
 );
 

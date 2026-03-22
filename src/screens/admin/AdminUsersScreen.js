@@ -1,85 +1,167 @@
-import React, { useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, TextInput, Alert } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, TextInput, Alert, Modal } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
+import { createUser, deleteUser, fetchAllUsers, updateUser } from '../../store/slices/adminSlice';
 import { Ionicons } from '@expo/vector-icons';
 
-export default function AdminUsersScreen({ navigation }) {
+const initialForm = {
+  id: null,
+  fullName: '',
+  email: '',
+  password: '',
+  phone: '',
+  role: 'user',
+};
+
+export default function AdminUsersScreen() {
   const dispatch = useDispatch();
+  const users = useSelector(state => state.admin.users);
+  const loading = useSelector(state => state.admin.loading);
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState(initialForm);
 
-  // Mock users data - in real app would come from Redux
-  const users = [
-    { id: '1', name: 'John Doe', email: 'john@example.com', phone: '+1234567890', status: 'active', createdAt: '2024-01-15' },
-    { id: '2', name: 'Jane Smith', email: 'jane@example.com', phone: '+1234567891', status: 'active', createdAt: '2024-02-20' },
-    { id: '3', name: 'Bob Johnson', email: 'bob@example.com', phone: '+1234567892', status: 'inactive', createdAt: '2024-03-10' },
-    { id: '4', name: 'Alice Brown', email: 'alice@example.com', phone: '+1234567893', status: 'active', createdAt: '2024-04-05' },
-    { id: '5', name: 'Charlie Wilson', email: 'charlie@example.com', phone: '+1234567894', status: 'active', createdAt: '2024-05-12' },
-  ];
+  useEffect(() => {
+    dispatch(fetchAllUsers());
+  }, [dispatch]);
 
-  const filteredUsers = users.filter(user => 
-    user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredUsers = useMemo(
+    () => users.filter(user => {
+      // Exclude admin@fitsphere.com from user management
+      if (user.email === 'admin@fitsphere.com') {
+        return false;
+      }
+      const displayName = user.fullName || user.name || '';
+      return (
+        displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        String(user.email || '').toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }),
+    [users, searchQuery]
   );
 
-  const handleEditUser = (userId) => {
-    Alert.alert('Edit User', `Edit user ${userId} functionality`);
+  const openCreateModal = () => {
+    setForm(initialForm);
+    setShowAddModal(true);
   };
 
-  const handleDeleteUser = (userId) => {
+  const openEditModal = (user) => {
+    setForm({
+      id: user.id,
+      fullName: user.fullName || user.name || '',
+      email: user.email || '',
+      password: '',
+      phone: user.phone || '',
+      role: user.role || 'user',
+    });
+    setShowAddModal(true);
+  };
+
+  const handleDeleteUser = (userId, displayName) => {
     Alert.alert(
-      'Delete User',
-      'Are you sure you want to delete this user?',
+      'Delete Account',
+      `Delete account for ${displayName}? This cannot be undone.`,
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: () => {
-          Alert.alert('Success', 'User deleted successfully');
-        }},
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await dispatch(deleteUser(userId)).unwrap();
+              Alert.alert('Success', 'Account deleted by admin.');
+            } catch (error) {
+              Alert.alert('Error', error?.message || 'Failed to delete user');
+            }
+          },
+        },
       ]
     );
   };
 
-  const handleResetPassword = (userId) => {
-    Alert.alert('Reset Password', 'Password reset link sent to user email');
+  const handleSaveUser = async () => {
+    if (!form.fullName.trim() || !form.email.trim()) {
+      Alert.alert('Error', 'Full name and email are required.');
+      return;
+    }
+
+    if (!form.id && !form.password.trim()) {
+      Alert.alert('Error', 'Password is required when creating a user.');
+      return;
+    }
+
+    const payload = {
+      fullName: form.fullName.trim(),
+      email: form.email.trim().toLowerCase(),
+      phone: form.phone.trim(),
+      role: form.role,
+    };
+
+    if (form.password.trim()) {
+      payload.password = form.password.trim();
+    }
+
+    try {
+      setSaving(true);
+      if (form.id) {
+        await dispatch(updateUser({ userId: form.id, userData: payload })).unwrap();
+      } else {
+        await dispatch(createUser(payload)).unwrap();
+      }
+      setShowAddModal(false);
+      setForm(initialForm);
+      Alert.alert('Success', `User ${form.id ? 'updated' : 'created'} successfully`);
+    } catch (error) {
+      Alert.alert('Error', error?.message || 'Failed to save user');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleAddUser = () => {
-    setShowAddModal(true);
-    Alert.alert('Add User', 'Add new user form would appear here');
-  };
-
-  const renderUserItem = ({ item }) => (
+  const renderUserItem = ({ item }) => {
+    const isAdminAccount = item.email === 'admin@fitsphere.com';
+    
+    return (
     <View style={styles.userCard}>
       <View style={styles.userInfo}>
         <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{item.name.charAt(0)}</Text>
+          <Text style={styles.avatarText}>{(item.fullName || item.name || 'U').charAt(0)}</Text>
         </View>
         <View style={styles.userDetails}>
-          <Text style={styles.userName}>{item.name}</Text>
+          <Text style={styles.userName}>{item.fullName || item.name || 'User'}</Text>
           <Text style={styles.userEmail}>{item.email}</Text>
-          <Text style={styles.userPhone}>{item.phone}</Text>
+          <Text style={styles.userPhone}>{item.phone || 'No phone'}</Text>
         </View>
       </View>
       
       <View style={styles.userActions}>
-        <View style={[styles.statusBadge, { backgroundColor: item.status === 'active' ? '#4CAF50' : '#999' }]}>
-          <Text style={styles.statusText}>{item.status}</Text>
+        <View style={[styles.statusBadge, { backgroundColor: item.role === 'admin' ? '#8b5cf6' : '#10b981' }]}>
+          <Text style={styles.statusText}>{item.role || 'user'}</Text>
         </View>
         
         <View style={styles.actionButtons}>
-          <TouchableOpacity style={styles.actionButton} onPress={() => handleEditUser(item.id)}>
-            <Ionicons name="create-outline" size={20} color="#2196F3" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton} onPress={() => handleResetPassword(item.id)}>
-            <Ionicons name="key-outline" size={20} color="#FF9800" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton} onPress={() => handleDeleteUser(item.id)}>
-            <Ionicons name="trash-outline" size={20} color="#f44336" />
-          </TouchableOpacity>
+          {!isAdminAccount && (
+            <>
+              <TouchableOpacity style={styles.actionButton} onPress={() => openEditModal(item)}>
+                <Ionicons name="create-outline" size={20} color="#1e3a8a" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={() => handleDeleteUser(item.id, item.fullName || item.name || 'user')}
+              >
+                <Ionicons name="trash-outline" size={20} color="#f44336" />
+              </TouchableOpacity>
+            </>
+          )}
+          {isAdminAccount && (
+            <Text style={styles.lockedText}>System Admin</Text>
+          )}
         </View>
       </View>
     </View>
   );
+  };
 
   return (
     <View style={styles.container}>
@@ -94,7 +176,7 @@ export default function AdminUsersScreen({ navigation }) {
             placeholderTextColor="#999"
           />
         </View>
-        <TouchableOpacity style={styles.addButton} onPress={handleAddUser}>
+        <TouchableOpacity style={styles.addButton} onPress={openCreateModal}>
           <Ionicons name="add" size={24} color="#fff" />
         </TouchableOpacity>
       </View>
@@ -105,12 +187,12 @@ export default function AdminUsersScreen({ navigation }) {
           <Text style={styles.statLabel}>Total Users</Text>
         </View>
         <View style={styles.statItem}>
-          <Text style={[styles.statValue, { color: '#4CAF50' }]}>{users.filter(u => u.status === 'active').length}</Text>
-          <Text style={styles.statLabel}>Active</Text>
+          <Text style={[styles.statValue, { color: '#8b5cf6' }]}>{users.filter(u => u.role === 'admin').length}</Text>
+          <Text style={styles.statLabel}>Admins</Text>
         </View>
         <View style={styles.statItem}>
-          <Text style={[styles.statValue, { color: '#999' }]}>{users.filter(u => u.status === 'inactive').length}</Text>
-          <Text style={styles.statLabel}>Inactive</Text>
+          <Text style={[styles.statValue, { color: '#10b981' }]}>{users.filter(u => u.role !== 'admin').length}</Text>
+          <Text style={styles.statLabel}>Admins</Text>
         </View>
       </View>
 
@@ -119,6 +201,8 @@ export default function AdminUsersScreen({ navigation }) {
         renderItem={renderUserItem}
         keyExtractor={item => item.id}
         contentContainerStyle={styles.listContent}
+        refreshing={loading}
+        onRefresh={() => dispatch(fetchAllUsers())}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Ionicons name="people-outline" size={50} color="#ddd" />
@@ -126,6 +210,67 @@ export default function AdminUsersScreen({ navigation }) {
           </View>
         }
       />
+
+      <Modal visible={showAddModal} animationType="slide" onRequestClose={() => setShowAddModal(false)}>
+        <View style={styles.modalContainer}>
+          <Text style={styles.modalTitle}>{form.id ? 'Edit User Account' : 'Create User Account'}</Text>
+
+          <TextInput
+            style={styles.modalInput}
+            placeholder="Full Name"
+            value={form.fullName}
+            onChangeText={(value) => setForm(prev => ({ ...prev, fullName: value }))}
+          />
+          <TextInput
+            style={styles.modalInput}
+            placeholder="Email"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            value={form.email}
+            onChangeText={(value) => setForm(prev => ({ ...prev, email: value }))}
+          />
+          <TextInput
+            style={styles.modalInput}
+            placeholder={form.id ? 'New Password (optional)' : 'Password'}
+            secureTextEntry
+            value={form.password}
+            onChangeText={(value) => setForm(prev => ({ ...prev, password: value }))}
+          />
+          <TextInput
+            style={styles.modalInput}
+            placeholder="Phone"
+            value={form.phone}
+            onChangeText={(value) => setForm(prev => ({ ...prev, phone: value }))}
+          />
+
+          <View style={styles.roleRow}>
+            <Text style={styles.roleLabel}>Role</Text>
+            <View style={styles.roleButtons}>
+              <TouchableOpacity
+                style={[styles.roleButton, form.role === 'user' && styles.roleButtonActive]}
+                onPress={() => setForm(prev => ({ ...prev, role: 'user' }))}
+              >
+                <Text style={[styles.roleButtonText, form.role === 'user' && styles.roleButtonTextActive]}>User</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.roleButton, form.role === 'admin' && styles.roleButtonActive]}
+                onPress={() => setForm(prev => ({ ...prev, role: 'admin' }))}
+              >
+                <Text style={[styles.roleButtonText, form.role === 'admin' && styles.roleButtonTextActive]}>Admin</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={styles.modalActions}>
+            <TouchableOpacity style={styles.cancelButton} onPress={() => setShowAddModal(false)}>
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.saveButton} disabled={saving} onPress={handleSaveUser}>
+              <Text style={styles.saveButtonText}>{saving ? 'Saving...' : 'Save'}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -161,7 +306,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#1e3a8a',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -203,7 +348,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#3b82f6',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -264,5 +409,92 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
     marginTop: 15,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+    padding: 16,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#222',
+    marginBottom: 16,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    marginBottom: 12,
+    fontSize: 15,
+    color: '#222',
+  },
+  roleRow: {
+    marginTop: 4,
+    marginBottom: 16,
+  },
+  roleLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  roleButtons: {
+    flexDirection: 'row',
+  },
+  roleButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#f3f3f3',
+    marginRight: 8,
+  },
+  roleButtonActive: {
+    backgroundColor: '#1e3a8a',
+  },
+  roleButtonText: {
+    color: '#555',
+    fontWeight: '600',
+  },
+  roleButtonTextActive: {
+    color: '#fff',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    marginTop: 8,
+  },
+  cancelButton: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  cancelButtonText: {
+    color: '#666',
+    fontWeight: '600',
+  },
+  saveButton: {
+    flex: 1,
+    backgroundColor: '#1e3a8a',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  saveButtonText: {
+    color: '#fff',
+    fontWeight: '700',
+  },
+  lockedText: {
+    fontSize: 12,
+    color: '#999',
+    fontWeight: '600',
+    fontStyle: 'italic',
+    paddingHorizontal: 8,
   },
 });

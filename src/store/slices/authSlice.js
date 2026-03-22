@@ -1,29 +1,24 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as SecureStore from 'expo-secure-store';
+import { apiDelete, apiGet, apiPost, apiPut } from '../../services/api';
+
+const ADMIN_EMAILS = ['admin@fitsphere.com', 'admin@firsphere.com'];
+const ADMIN_PASSWORD = 'admin123';
 
 // Async thunks for authentication
 export const login = createAsyncThunk(
   'auth/login',
   async ({ email, password }, { rejectWithValue }) => {
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Mock validation
-      if (email === 'admin@fitsphere.com' && password === 'admin123') {
-        const user = { id: '1', email, name: 'Admin User', role: 'admin', avatar: null };
-        await AsyncStorage.setItem('user', JSON.stringify(user));
-        return user;
-      }
-      
-      if (email && password) {
-        const user = { id: Date.now().toString(), email, name: email.split('@')[0], role: 'user', avatar: null };
-        await AsyncStorage.setItem('user', JSON.stringify(user));
-        return user;
-      }
-      
-      return rejectWithValue('Invalid credentials');
+      const normalizedEmail = String(email || '').trim().toLowerCase();
+      const response = await apiPost('/auth/login', { email: normalizedEmail, password });
+      const isExactAdmin = ADMIN_EMAILS.includes(normalizedEmail) && password === ADMIN_PASSWORD;
+      const user = {
+        ...response.user,
+        role: isExactAdmin ? 'admin' : 'user',
+      };
+      await AsyncStorage.setItem('user', JSON.stringify(user));
+      return user;
     } catch (error) {
       return rejectWithValue(error.message);
     }
@@ -32,18 +27,12 @@ export const login = createAsyncThunk(
 
 export const register = createAsyncThunk(
   'auth/register',
-  async ({ name, email, password }, { rejectWithValue }) => {
+  async ({ fullName, email, password }, { rejectWithValue }) => {
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      if (email && password && name) {
-        const user = { id: Date.now().toString(), email, name, role: 'user', avatar: null };
-        await AsyncStorage.setItem('user', JSON.stringify(user));
-        return user;
-      }
-      
-      return rejectWithValue('All fields are required');
+      const response = await apiPost('/auth/register', { fullName, email, password });
+      const user = response.user;
+      await AsyncStorage.setItem('user', JSON.stringify(user));
+      return user;
     } catch (error) {
       return rejectWithValue(error.message);
     }
@@ -105,12 +94,45 @@ export const facebookLogin = createAsyncThunk(
 // Update user profile
 export const updateProfile = createAsyncThunk(
   'auth/updateProfile',
-  async ({ name, avatar }, { getState, rejectWithValue }) => {
+  async ({ name, email, phone, profileImage, avatar }, { getState, rejectWithValue }) => {
     try {
       const { user } = getState().auth;
-      const updatedUser = { ...user, name: name || user.name, avatar: avatar || user.avatar };
+      const response = await apiPut(`/auth/users/${user.id}`, {
+        fullName: name || user.fullName || user.name,
+        email: email || user.email,
+        phone: phone || user.phone || '',
+        profileImage: profileImage || user.profileImage || null,
+        avatar: avatar || user.avatar,
+      });
+
+      const updatedUser = response.user;
       await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
       return updatedUser;
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+export const fetchAccount = createAsyncThunk(
+  'auth/fetchAccount',
+  async (userId, { rejectWithValue }) => {
+    try {
+      const response = await apiGet(`/auth/users/${userId}`);
+      return response.user;
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+export const deleteAccount = createAsyncThunk(
+  'auth/deleteAccount',
+  async (userId, { rejectWithValue }) => {
+    try {
+      await apiDelete(`/auth/users/${userId}`);
+      await AsyncStorage.removeItem('user');
+      return userId;
     } catch (error) {
       return rejectWithValue(error.message);
     }
@@ -133,6 +155,7 @@ const initialState = {
   isAuthenticated: false,
   loading: false,
   error: null,
+  showLanding: true,
 };
 
 const authSlice = createSlice({
@@ -141,6 +164,9 @@ const authSlice = createSlice({
   reducers: {
     clearError: (state) => {
       state.error = null;
+    },
+    setShowLanding: (state, action) => {
+      state.showLanding = action.payload;
     },
   },
   extraReducers: (builder) => {
@@ -164,10 +190,10 @@ const authSlice = createSlice({
         state.loading = true;
         state.error = null;
       })
-      .addCase(register.fulfilled, (state, action) => {
+      .addCase(register.fulfilled, (state) => {
         state.loading = false;
-        state.user = action.payload;
-        state.isAuthenticated = true;
+        state.user = null;
+        state.isAuthenticated = false;
       })
       .addCase(register.rejected, (state, action) => {
         state.loading = false;
@@ -177,6 +203,7 @@ const authSlice = createSlice({
       .addCase(logout.fulfilled, (state) => {
         state.user = null;
         state.isAuthenticated = false;
+        state.showLanding = true;
       })
       // Load User
       .addCase(loadUser.pending, (state) => {
@@ -187,7 +214,7 @@ const authSlice = createSlice({
         state.user = action.payload;
         state.isAuthenticated = !!action.payload;
       })
-.addCase(loadUser.rejected, (state) => {
+      .addCase(loadUser.rejected, (state) => {
         state.loading = false;
         state.user = null;
         state.isAuthenticated = false;
@@ -223,9 +250,18 @@ const authSlice = createSlice({
       // Update Profile
       .addCase(updateProfile.fulfilled, (state, action) => {
         state.user = action.payload;
+      })
+      // Fetch Account
+      .addCase(fetchAccount.fulfilled, (state, action) => {
+        state.user = action.payload;
+      })
+      // Delete Account
+      .addCase(deleteAccount.fulfilled, (state) => {
+        state.user = null;
+        state.isAuthenticated = false;
       });
   },
 });
 
-export const { clearError } = authSlice.actions;
+export const { clearError, setShowLanding } = authSlice.actions;
 export default authSlice.reducer;

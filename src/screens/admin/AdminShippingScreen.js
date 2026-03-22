@@ -92,7 +92,7 @@ export default function AdminShippingScreen({ navigation }) {
 
         <View style={styles.rateActions}>
           <TouchableOpacity style={styles.actionButton} onPress={() => handleEditRate(item.id)}>
-            <Ionicons name="create-outline" size={20} color="#2196F3" />
+            <Ionicons name="create-outline" size={20} color="#1e3a8a" />
           </TouchableOpacity>
           <TouchableOpacity style={styles.actionButton} onPress={() => handleDeleteRate(item.id)}>
             <Ionicons name="trash-outline" size={20} color="#f44336" />
@@ -116,7 +116,7 @@ export default function AdminShippingScreen({ navigation }) {
       </View>
 
       <View style={styles.infoCard}>
-        <Ionicons name="information-circle-outline" size={24} color="#2196F3" />
+        <Ionicons name="information-circle-outline" size={24} color="#3b82f6" />
         <Text style={styles.infoText}>
           Configure shipping rates based on region and delivery method. Customers will see available options during checkout.
         </Text>
@@ -193,11 +193,11 @@ export default function AdminShippingScreen({ navigation }) {
           <Text style={styles.statLabel}>Total Rates</Text>
         </View>
         <View style={styles.statItem}>
-          <Text style={[styles.statValue, { color: '#4CAF50' }]}>{shippingRates.filter(r => r.active).length}</Text>
+          <Text style={[styles.statValue, { color: '#10b981' }]}>{shippingRates.filter(r => r.active).length}</Text>
           <Text style={styles.statLabel}>Active</Text>
         </View>
         <View style={styles.statItem}>
-          <Text style={[styles.statValue, { color: '#FF9800' }]}>${(shippingRates.reduce((acc, r) => acc + r.price, 0) / shippingRates.length).toFixed(2)}</Text>
+          <Text style={[styles.statValue, { color: '#3b82f6' }]}>${(shippingRates.reduce((acc, r) => acc + r.price, 0) / shippingRates.length).toFixed(2)}</Text>
           <Text style={styles.statLabel}>Avg. Price</Text>
         </View>
       </View>
@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#1e3a8a',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -304,7 +304,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 12,
     borderRadius: 8,
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#1e3a8a',
     alignItems: 'center',
   },
   saveButtonText: {
@@ -374,7 +374,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   toggleTextActive: {
-    color: '#4CAF50',
+    color: '#1e3a8a',
   },
   toggleTextInactive: {
     color: '#999',
@@ -393,7 +393,7 @@ const styles = StyleSheet.create({
   ratePrice: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#4CAF50',
+    color: '#1e3a8a',
   },
   rateDays: {
     fontSize: 12,

@@ -32,10 +32,10 @@ export default function AdminReportsScreen({ navigation }) {
   ];
 
   const salesByCategory = [
-    { category: 'Strength Training', percentage: 45, color: '#4CAF50' },
-    { category: 'Cardio', percentage: 25, color: '#2196F3' },
-    { category: 'Accessories', percentage: 15, color: '#FF9800' },
-    { category: 'Recovery', percentage: 10, color: '#9C27B0' },
+    { category: 'Strength Training', percentage: 45, color: '#1e3a8a' },
+    { category: 'Cardio', percentage: 25, color: '#3b82f6' },
+    { category: 'Accessories', percentage: 15, color: '#f59e0b' },
+    { category: 'Recovery', percentage: 10, color: '#8b5cf6' },
     { category: 'Other', percentage: 5, color: '#607D8B' },
   ];
 
@@ -58,7 +58,7 @@ export default function AdminReportsScreen({ navigation }) {
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
-        <Text style={styles.title}>Reports & Analytics</Text>
+        <Text style={styles.title}>Activities & Analytics</Text>
         <TouchableOpacity style={styles.exportButton} onPress={handleGenerateReport}>
           <Ionicons name="download-outline" size={20} color="#fff" />
           <Text style={styles.exportButtonText}>Export</Text>
@@ -82,7 +82,7 @@ export default function AdminReportsScreen({ navigation }) {
       <View style={styles.metricsGrid}>
         <View style={styles.metricCard}>
           <View style={[styles.metricIcon, { backgroundColor: '#e8f5e9' }]}>
-            <Ionicons name="cash" size={24} color="#4CAF50" />
+            <Ionicons name="cash" size={24} color="#1e3a8a" />
           </View>
           <Text style={styles.metricValue}>${totalRevenue.toFixed(2)}</Text>
           <Text style={styles.metricLabel}>Total Revenue</Text>
@@ -90,7 +90,7 @@ export default function AdminReportsScreen({ navigation }) {
 
         <View style={styles.metricCard}>
           <View style={[styles.metricIcon, { backgroundColor: '#e3f2fd' }]}>
-            <Ionicons name="receipt" size={24} color="#2196F3" />
+            <Ionicons name="receipt" size={24} color="#3b82f6" />
           </View>
           <Text style={styles.metricValue}>{totalOrders}</Text>
           <Text style={styles.metricLabel}>Total Orders</Text>
@@ -98,7 +98,7 @@ export default function AdminReportsScreen({ navigation }) {
 
         <View style={styles.metricCard}>
           <View style={[styles.metricIcon, { backgroundColor: '#fff3e0' }]}>
-            <Ionicons name="pricetag" size={24} color="#FF9800" />
+            <Ionicons name="pricetag" size={24} color="#3b82f6" />
           </View>
           <Text style={styles.metricValue}>${averageOrderValue.toFixed(2)}</Text>
           <Text style={styles.metricLabel}>Avg. Order Value</Text>
@@ -106,7 +106,7 @@ export default function AdminReportsScreen({ navigation }) {
 
         <View style={styles.metricCard}>
           <View style={[styles.metricIcon, { backgroundColor: '#f3e5f5' }]}>
-            <Ionicons name="cube" size={24} color="#9C27B0" />
+            <Ionicons name="cube" size={24} color="#8b5cf6" />
           </View>
           <Text style={styles.metricValue}>{totalProducts}</Text>
           <Text style={styles.metricLabel}>Total Products</Text>
@@ -161,8 +161,8 @@ export default function AdminReportsScreen({ navigation }) {
                                   transaction.status === 'Pending' ? '#fff3e0' : '#ffebee'
                 }]}>
                   <Text style={[styles.statusText, { 
-                    color: transaction.status === 'Completed' ? '#4CAF50' : 
-                           transaction.status === 'Pending' ? '#FF9800' : '#f44336'
+                    color: transaction.status === 'Completed' ? '#10b981' : 
+                           transaction.status === 'Pending' ? '#f59e0b' : '#ef4444'
                   }]}>
                     {transaction.status}
                   </Text>
@@ -171,7 +171,7 @@ export default function AdminReportsScreen({ navigation }) {
               <View style={styles.transactionRight}>
                 <Text style={styles.transactionAmount}>${transaction.amount.toFixed(2)}</Text>
                 <TouchableOpacity onPress={() => handleExportReceipt(transaction.id)}>
-                  <Ionicons name="receipt-outline" size={18} color="#2196F3" />
+                  <Ionicons name="receipt-outline" size={18} color="#3b82f6" />
                 </TouchableOpacity>
               </View>
             </View>
@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
   exportButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#1e3a8a',
     paddingHorizontal: 15,
     paddingVertical: 8,
     borderRadius: 20,
@@ -246,7 +246,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 3,
   },
   periodChipActive: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#1e3a8a',
   },
   periodText: {
     fontSize: 12,
@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#1e3a8a',
     color: '#fff',
     fontSize: 12,
     fontWeight: 'bold',
@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
   topProductRevenue: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#4CAF50',
+    color: '#1e3a8a',
   },
   categoryItem: {
     flexDirection: 'row',
@@ -457,7 +457,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   alertButton: {
-    backgroundColor: '#FF9800',
+    backgroundColor: '#f59e0b',
     paddingHorizontal: 15,
     paddingVertical: 8,
     borderRadius: 15,
