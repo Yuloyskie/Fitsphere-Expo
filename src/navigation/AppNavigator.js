@@ -32,6 +32,7 @@ import SecurityScreen from '../screens/user/SecurityScreen';
 import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
 import AdminUsersScreen from '../screens/admin/AdminUsersScreen';
 import AdminProductsScreen from '../screens/admin/AdminProductsScreen';
+import AdminCategoriesScreen from '../screens/admin/AdminCategoriesScreen';
 import AdminOrdersScreen from '../screens/admin/AdminOrdersScreen';
 import AdminShippingScreen from '../screens/admin/AdminShippingScreen';
 import AdminReportsScreen from '../screens/admin/AdminReportsScreen';
@@ -227,6 +228,14 @@ function AdminDrawer() {
         options={{
           drawerLabel: 'Products',
           drawerIcon: ({ color, size }) => <Ionicons name="cube-outline" size={size} color={color} />,
+        }}
+      />
+      <Drawer.Screen
+        name="AdminCategories"
+        component={AdminCategoriesScreen}
+        options={{
+          drawerLabel: 'Categories',
+          drawerIcon: ({ color, size }) => <Ionicons name="apps-outline" size={size} color={color} />,
         }}
       />
       <Drawer.Screen

@@ -50,10 +50,9 @@ export default function EditProfileScreen({ navigation }) {
     Alert.alert('Change Password', 'Password change functionality would be implemented here.');
   };
 
-  const handlePickProfileImage = async () => {
+  const handlePickFromGallery = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: [ImagePicker.MediaType.IMAGE],
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
@@ -65,6 +64,45 @@ export default function EditProfileScreen({ navigation }) {
     } catch (error) {
       Alert.alert('Error', 'Failed to pick image: ' + error.message);
     }
+  };
+
+  const handlePickFromCamera = async () => {
+    try {
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled) {
+        setProfileImage(result.assets[0].uri);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to capture image: ' + error.message);
+    }
+  };
+
+  const handlePickProfileImage = () => {
+    Alert.alert(
+      'Change Profile Picture',
+      'Choose a source',
+      [
+        {
+          text: 'Camera',
+          onPress: handlePickFromCamera,
+        },
+        {
+          text: 'Gallery',
+          onPress: handlePickFromGallery,
+        },
+        {
+          text: 'Cancel',
+          onPress: () => {},
+          style: 'cancel',
+        },
+      ],
+      { options: { cancelable: true } }
+    );
   };
 
   return (

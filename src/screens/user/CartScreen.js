@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Image, Alert, TextInput } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Image, Alert, TextInput, ImageBackground } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { removeFromCart, updateQuantity, clearCart, applyPromoCode } from '../../store/slices/cartSlice';
 import { selectCartTotal, selectCartCount } from '../../store/slices/cartSlice';
@@ -86,7 +86,12 @@ export default function CartScreen({ navigation }) {
   const finalTotal = cartTotal - (cartTotal * cartDiscount / 100);
 
   return (
-    <View style={styles.container}>
+    <ImageBackground
+      source={require('../../../images/StoreBg.webp')}
+      style={styles.container}
+    >
+      <View style={styles.overlayWhite} />
+      <View style={styles.container}>
       {cartItems.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Ionicons name="cart-outline" size={80} color="#ddd" />
@@ -141,7 +146,8 @@ export default function CartScreen({ navigation }) {
           </View>
         </>
       )}
-    </View>
+      </View>
+    </ImageBackground>
   );
 }
 
@@ -338,5 +344,13 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  overlayWhite: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
   },
 });

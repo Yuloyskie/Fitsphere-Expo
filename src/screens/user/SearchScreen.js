@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet, Image, Modal, ScrollView } from 'react-native';
+import { View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet, Image, Modal, ScrollView, ImageBackground } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { searchProducts, clearSearchResults, fetchCategories } from '../../store/slices/productSlice';
 import { Ionicons } from '@expo/vector-icons';
@@ -87,7 +87,12 @@ export default function SearchScreen({ navigation }) {
   );
 
   return (
-    <View style={styles.container}>
+    <ImageBackground 
+      source={require('../../../images/StoreBg.webp')}
+      style={styles.container}
+    >
+      <View style={styles.overlayWhite} />
+      <View style={[styles.container, { backgroundColor: 'transparent' }]}>
       <View style={styles.searchContainer}>
         <View style={styles.searchInputContainer}>
           <Ionicons name="search" size={20} color="#666" />
@@ -241,14 +246,22 @@ export default function SearchScreen({ navigation }) {
           </View>
         </View>
       </Modal>
-    </View>
+      </View>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+  },
+  overlayWhite: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
   },
   searchContainer: {
     padding: 10,

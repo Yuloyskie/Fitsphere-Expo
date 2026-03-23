@@ -143,12 +143,30 @@ const reviewSchema = new mongoose.Schema(
   { timestamps: true, collection: 'reviews' }
 );
 
+const promoCodeSchema = new mongoose.Schema(
+  {
+    code: { type: String, required: true, unique: true, trim: true, uppercase: true },
+    description: String,
+    discountType: { type: String, enum: ['percentage', 'fixed'], default: 'percentage' },
+    discountValue: { type: Number, required: true },
+    minPurchaseAmount: { type: Number, default: 0 },
+    maxUses: { type: Number, default: null },
+    usedCount: { type: Number, default: 0 },
+    expiresAt: { type: Date, default: null },
+    active: { type: Boolean, default: true },
+    applicableProducts: [String],
+    applicableCategories: [String],
+  },
+  { timestamps: true }
+);
+
 const Product = mongoose.model('Product', productSchema);
 const Category = mongoose.model('Category', categorySchema);
 const User = mongoose.model('User', userSchema);
 const Order = mongoose.model('Order', orderSchema);
 const ShippingRate = mongoose.model('ShippingRate', shippingRateSchema);
 const Review = mongoose.model('Review', reviewSchema);
+const PromoCode = mongoose.model('PromoCode', promoCodeSchema);
 
 const mapId = (doc) => {
   if (!doc) {
@@ -734,6 +752,22 @@ app.post('/api/categories', async (req, res) => {
   res.status(201).json({ category: mapId(category) });
 });
 
+app.put('/api/categories/:id', async (req, res) => {
+  const category = await Category.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  if (!category) {
+    return res.status(404).json({ message: 'Category not found' });
+  }
+  res.json({ category: mapId(category) });
+});
+
+app.delete('/api/categories/:id', async (req, res) => {
+  const category = await Category.findByIdAndDelete(req.params.id);
+  if (!category) {
+    return res.status(404).json({ message: 'Category not found' });
+  }
+  res.json({ id: req.params.id });
+});
+
 app.get('/api/orders', async (req, res) => {
   try {
     const { userId, status, search, startDate, endDate, sortBy } = req.query;
@@ -1136,6 +1170,140 @@ app.put('/api/admin/shipping-rates', async (req, res) => {
     shippingRates: shippingRates.map(mapId),
     updatedRate: mapId(rate),
   });
+});
+
+// ================== PROMO CODES CRUD ==================
+
+// GET all promo codes (admin)
+app.get('/api/promo-codes', async (req, res) => {
+  try {
+    const promoCodes = await PromoCode.find().sort({ createdAt: -1 });
+    res.json({ promoCodes: promoCodes.map(mapId) });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch promo codes', error: error.message });
+  }
+});
+
+// GET promo code by code (user - validate code)
+app.get('/api/promo-codes/:code/validate', async (req, res) => {
+  try {
+    const promoCode = await PromoCode.findOne({ 
+      code: req.params.code.toUpperCase(),
+      active: true 
+    });
+
+    if (!promoCode) {
+      return res.status(404).json({ message: 'Promo code not found or inactive' });
+    }
+
+    if (promoCode.maxUses && promoCode.usedCount >= promoCode.maxUses) {
+      return res.status(400).json({ message: 'Promo code has reached maximum uses' });
+    }
+
+    if (promoCode.expiresAt && new Date() > promoCode.expiresAt) {
+      return res.status(400).json({ message: 'Promo code has expired' });
+    }
+
+    res.json({ promoCode: mapId(promoCode) });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to validate promo code', error: error.message });
+  }
+});
+
+// CREATE promo code (admin)
+app.post('/api/promo-codes', async (req, res) => {
+  try {
+    const { code, description, discountType, discountValue, minPurchaseAmount, maxUses, expiresAt, applicableProducts, applicableCategories } = req.body;
+
+    if (!code || !discountType || discountValue === undefined) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+
+    const existingCode = await PromoCode.findOne({ code: code.toUpperCase() });
+    if (existingCode) {
+      return res.status(409).json({ message: 'Promo code already exists' });
+    }
+
+    const promoCode = await PromoCode.create({
+      code: code.toUpperCase(),
+      description,
+      discountType,
+      discountValue,
+      minPurchaseAmount: minPurchaseAmount || 0,
+      maxUses,
+      expiresAt,
+      applicableProducts: applicableProducts || [],
+      applicableCategories: applicableCategories || [],
+    });
+
+    res.status(201).json({ promoCode: mapId(promoCode) });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to create promo code', error: error.message });
+  }
+});
+
+// UPDATE promo code (admin)
+app.put('/api/promo-codes/:id', async (req, res) => {
+  try {
+    const { description, discountType, discountValue, minPurchaseAmount, maxUses, expiresAt, active, applicableProducts, applicableCategories } = req.body;
+
+    const promoCode = await PromoCode.findByIdAndUpdate(
+      req.params.id,
+      {
+        description,
+        discountType,
+        discountValue,
+        minPurchaseAmount,
+        maxUses,
+        expiresAt,
+        active,
+        applicableProducts,
+        applicableCategories,
+      },
+      { new: true }
+    );
+
+    if (!promoCode) {
+      return res.status(404).json({ message: 'Promo code not found' });
+    }
+
+    res.json({ promoCode: mapId(promoCode) });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to update promo code', error: error.message });
+  }
+});
+
+// DELETE promo code (admin)
+app.delete('/api/promo-codes/:id', async (req, res) => {
+  try {
+    const deleted = await PromoCode.findByIdAndDelete(req.params.id);
+    if (!deleted) {
+      return res.status(404).json({ message: 'Promo code not found' });
+    }
+
+    res.json({ id: req.params.id });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to delete promo code', error: error.message });
+  }
+});
+
+// INCREMENT used count when promo code is applied
+app.post('/api/promo-codes/:id/use', async (req, res) => {
+  try {
+    const promoCode = await PromoCode.findByIdAndUpdate(
+      req.params.id,
+      { $inc: { usedCount: 1 } },
+      { new: true }
+    );
+
+    if (!promoCode) {
+      return res.status(404).json({ message: 'Promo code not found' });
+    }
+
+    res.json({ promoCode: mapId(promoCode) });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to update promo code usage', error: error.message });
+  }
 });
 
 app.use((err, _req, res, _next) => {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,30 +9,44 @@ import {
   Alert,
   Modal,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
+import { fetchPromoCodes, createPromoCode, updatePromoCode, deletePromoCode } from '../../store/slices/promoSlice';
 import notificationService from '../../services/NotificationService';
 
 export default function AdminPromoCodesScreen() {
-  const [promoCodes, setPromoCodes] = useState([
-    { id: '1', code: 'WELCOME10', discount: 10, description: '10% off first order', active: true, createdAt: '2024-01-01', expiresAt: '2024-12-31' },
-    { id: '2', code: 'SAVE20', discount: 20, description: '20% off summer sale', active: true, createdAt: '2024-01-05', expiresAt: '2024-08-31' },
-    { id: '3', code: 'FIT50', discount: 50, description: '$50 off orders over $200', active: false, createdAt: '2023-12-01', expiresAt: '2024-01-10' },
-  ]);
+  const dispatch = useDispatch();
+  const { promoCodes, loading } = useSelector(state => state.promo);
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({
     code: '',
-    discount: '',
+    discountType: 'percentage',
+    discountValue: '',
     description: '',
+    minPurchaseAmount: '',
+    maxUses: '',
     expiresAt: '',
   });
 
+  useEffect(() => {
+    dispatch(fetchPromoCodes());
+  }, [dispatch]);
+
   const handleAddPromo = () => {
     setEditingId(null);
-    setForm({ code: '', discount: '', description: '', expiresAt: '' });
+    setForm({
+      code: '',
+      discountType: 'percentage',
+      discountValue: '',
+      description: '',
+      minPurchaseAmount: '',
+      maxUses: '',
+      expiresAt: '',
+    });
     setShowForm(true);
   };
 
@@ -40,71 +54,78 @@ export default function AdminPromoCodesScreen() {
     setEditingId(promo.id);
     setForm({
       code: promo.code,
-      discount: promo.discount.toString(),
-      description: promo.description,
-      expiresAt: promo.expiresAt,
+      discountType: promo.discountType || 'percentage',
+      discountValue: promo.discountValue.toString(),
+      description: promo.description || '',
+      minPurchaseAmount: (promo.minPurchaseAmount || 0).toString(),
+      maxUses: (promo.maxUses || '').toString(),
+      expiresAt: promo.expiresAt || '',
     });
     setShowForm(true);
   };
 
   const handleSavePromo = async () => {
-    if (!form.code || !form.discount || !form.description || !form.expiresAt) {
-      Alert.alert('Error', 'Please fill in all fields');
+    if (!form.code || !form.discountValue || !form.description) {
+      Alert.alert('Error', 'Please fill in all required fields');
       return;
     }
 
-    if (isNaN(parseInt(form.discount)) || parseInt(form.discount) < 1 || parseInt(form.discount) > 100) {
-      Alert.alert('Error', 'Discount must be between 1 and 100');
+    const discountValue = parseFloat(form.discountValue);
+    if (isNaN(discountValue) || discountValue <= 0) {
+      Alert.alert('Error', 'Discount value must be a positive number');
       return;
     }
 
-    const promoCodeUpper = form.code.toUpperCase();
+    const promoData = {
+      code: form.code.toUpperCase(),
+      discountType: form.discountType,
+      discountValue,
+      description: form.description,
+      minPurchaseAmount: parseFloat(form.minPurchaseAmount) || 0,
+      maxUses: form.maxUses ? parseInt(form.maxUses) : null,
+      expiresAt: form.expiresAt ? new Date(form.expiresAt).toISOString() : null,
+      active: true,
+    };
 
     try {
       if (editingId) {
-        // Update existing
-        setPromoCodes(promoCodes.map(p =>
-          p.id === editingId
-            ? { ...p, code: promoCodeUpper, discount: parseInt(form.discount), description: form.description, expiresAt: form.expiresAt }
-            : p
-        ));
+        await dispatch(updatePromoCode({ id: editingId, data: promoData })).unwrap();
         Alert.alert('Success', 'Promo code updated successfully');
       } else {
-        // Create new
-        const newPromo = {
-          id: Date.now().toString(),
-          code: promoCodeUpper,
-          discount: parseInt(form.discount),
-          description: form.description,
-          expiresAt: form.expiresAt,
-          active: true,
-          createdAt: new Date().toISOString().split('T')[0],
-        };
-        setPromoCodes([...promoCodes, newPromo]);
-
+        await dispatch(createPromoCode(promoData)).unwrap();
+        
         // Send promotion notification
+        const discountText = form.discountType === 'percentage' 
+          ? `${form.discountValue}% off` 
+          : `$${form.discountValue} off`;
+        
         await notificationService.sendLocalNotification(
           'New Promotion Available! 🎉',
-          `Get ${newPromo.discount}% off with code: ${promoCodeUpper}\n\n${newPromo.description}`,
+          `Get ${discountText} with code: ${form.code.toUpperCase()}\n\n${form.description}`,
           {
             type: 'promotion',
-            promoCode: promoCodeUpper,
-            discount: newPromo.discount,
-            description: newPromo.description,
+            promoCode: form.code.toUpperCase(),
           }
         );
 
-        Alert.alert('Success', `Promo code created and notification sent!\nCode: ${promoCodeUpper}`);
+        Alert.alert('Success', `Promo code created!\nCode: ${form.code.toUpperCase()}`);
       }
       setShowForm(false);
-      setForm({ code: '', discount: '', description: '', expiresAt: '' });
+      setForm({
+        code: '',
+        discountType: 'percentage',
+        discountValue: '',
+        description: '',
+        minPurchaseAmount: '',
+        maxUses: '',
+        expiresAt: '',
+      });
     } catch (error) {
-      Alert.alert('Error', 'Failed to save promo code');
-      console.error(error);
+      Alert.alert('Error', error || 'Failed to save promo code');
     }
   };
 
-  const handleDeletePromo = (id) => {
+  const handleDeletePromo = (promoId) => {
     Alert.alert(
       'Delete Promo Code',
       'Are you sure you want to delete this promo code?',
@@ -113,68 +134,88 @@ export default function AdminPromoCodesScreen() {
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: () => {
-            setPromoCodes(promoCodes.filter(p => p.id !== id));
-            Alert.alert('Success', 'Promo code deleted');
+          onPress: async () => {
+            try {
+              await dispatch(deletePromoCode(promoId)).unwrap();
+              Alert.alert('Success', 'Promo code deleted successfully');
+            } catch (error) {
+              Alert.alert('Error', error || 'Failed to delete promo code');
+            }
           },
         },
       ]
     );
   };
 
-  const togglePromoStatus = (id) => {
-    setPromoCodes(promoCodes.map(p =>
-      p.id === id ? { ...p, active: !p.active } : p
-    ));
+  const renderPromoItem = ({ item }) => {
+    const discountDisplay = item.discountType === 'percentage'
+      ? `${item.discountValue}% off`
+      : `$${item.discountValue} off`;
+
+    const isExpired = item.expiresAt && new Date(item.expiresAt) < new Date();
+    const maxUsesReached = item.maxUses && item.usedCount >= item.maxUses;
+
+    return (
+      <View style={styles.promoCard}>
+        <View style={styles.promoHeader}>
+          <View>
+            <Text style={styles.promoCode}>{item.code}</Text>
+            <Text style={styles.promoDiscount}>{discountDisplay}</Text>
+          </View>
+          <View style={[
+            styles.statusBadge,
+            {
+              backgroundColor: isExpired || maxUsesReached ? '#ef4444' : (item.active ? '#10b981' : '#808080')
+            }
+          ]}>
+            <Text style={styles.statusText}>
+              {isExpired ? 'Expired' : maxUsesReached ? 'Max Uses' : (item.active ? 'Active' : 'Inactive')}
+            </Text>
+          </View>
+        </View>
+
+        <Text style={styles.promoDescription}>{item.description}</Text>
+
+        <View style={styles.promoMeta}>
+          {item.minPurchaseAmount > 0 && (
+            <View style={styles.metaItem}>
+              <Ionicons name="pricetag-outline" size={14} color="#666" />
+              <Text style={styles.metaText}>Min: ${item.minPurchaseAmount}</Text>
+            </View>
+          )}
+          {item.expiresAt && (
+            <View style={styles.metaItem}>
+              <Ionicons name="calendar-outline" size={14} color="#666" />
+              <Text style={styles.metaText}>Expires: {new Date(item.expiresAt).toLocaleDateString()}</Text>
+            </View>
+          )}
+          {item.maxUses && (
+            <View style={styles.metaItem}>
+              <Ionicons name="copy-outline" size={14} color="#666" />
+              <Text style={styles.metaText}>Used: {item.usedCount}/{item.maxUses}</Text>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.promoActions}>
+          <TouchableOpacity
+            style={styles.editButton}
+            onPress={() => handleEditPromo(item)}
+          >
+            <Ionicons name="pencil-outline" size={16} color="#4B5563" />
+            <Text style={styles.editButtonText}>Edit</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={() => handleDeletePromo(item.id)}
+          >
+            <Ionicons name="trash-outline" size={16} color="#ef4444" />
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
   };
-
-  const renderPromoItem = ({ item }) => (
-    <View style={styles.promoCard}>
-      <View style={styles.promoHeader}>
-        <View>
-          <Text style={styles.promoCode}>{item.code}</Text>
-          <Text style={styles.promoDiscount}>{item.discount}% Discount</Text>
-        </View>
-        <View style={[styles.statusBadge, { backgroundColor: item.active ? '#10b981' : '#ef4444' }]}>
-          <Text style={styles.statusText}>{item.active ? 'Active' : 'Inactive'}</Text>
-        </View>
-      </View>
-
-      <Text style={styles.promoDescription}>{item.description}</Text>
-
-      <View style={styles.promoMeta}>
-        <View style={styles.metaItem}>
-          <Ionicons name="calendar-outline" size={14} color="#666" />
-          <Text style={styles.metaText}>Expires: {item.expiresAt}</Text>
-        </View>
-      </View>
-
-      <View style={styles.promoActions}>
-        <TouchableOpacity
-          style={[styles.actionButton, { backgroundColor: item.active ? '#ff6b6b' : '#4B5563' }]}
-          onPress={() => togglePromoStatus(item.id)}
-        >
-          <Ionicons name={item.active ? 'power-outline' : 'checkmark-outline'} size={16} color="#fff" />
-          <Text style={styles.actionButtonText}>{item.active ? 'Deactivate' : 'Activate'}</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.editButton}
-          onPress={() => handleEditPromo(item)}
-        >
-          <Ionicons name="pencil-outline" size={16} color="#4B5563" />
-          <Text style={styles.editButtonText}>Edit</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.deleteButton}
-          onPress={() => handleDeletePromo(item.id)}
-        >
-          <Ionicons name="trash-outline" size={16} color="#ef4444" />
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
 
   return (
     <View style={styles.container}>
@@ -185,7 +226,11 @@ export default function AdminPromoCodesScreen() {
         </TouchableOpacity>
       </View>
 
-      {promoCodes.length === 0 ? (
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#000000" />
+        </View>
+      ) : promoCodes.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Ionicons name="ticket-outline" size={60} color="#ddd" />
           <Text style={styles.emptyText}>No promo codes yet</Text>
@@ -218,8 +263,8 @@ export default function AdminPromoCodesScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.modalBody}>
-              <Text style={styles.label}>Promo Code</Text>
+            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+              <Text style={styles.label}>Promo Code *</Text>
               <TextInput
                 style={styles.input}
                 placeholder="e.g., SUMMER20"
@@ -229,20 +274,40 @@ export default function AdminPromoCodesScreen() {
                 placeholderTextColor="#999"
               />
 
-              <Text style={styles.label}>Discount Percentage (1-100)</Text>
+              <Text style={styles.label}>Discount Type *</Text>
+              <View style={styles.discountTypeContainer}>
+                <TouchableOpacity
+                  style={[styles.typeButton, form.discountType === 'percentage' && styles.typeButtonActive]}
+                  onPress={() => setForm({ ...form, discountType: 'percentage' })}
+                >
+                  <Text style={[styles.typeButtonText, form.discountType === 'percentage' && styles.typeButtonTextActive]}>
+                    Percentage (%)
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.typeButton, form.discountType === 'fixed' && styles.typeButtonActive]}
+                  onPress={() => setForm({ ...form, discountType: 'fixed' })}
+                >
+                  <Text style={[styles.typeButtonText, form.discountType === 'fixed' && styles.typeButtonTextActive]}>
+                    Fixed ($)
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.label}>Discount Value *</Text>
               <View style={styles.discountInput}>
                 <TextInput
                   style={styles.input}
-                  placeholder="20"
-                  value={form.discount}
-                  onChangeText={(text) => setForm({ ...form, discount: text })}
-                  keyboardType="numeric"
+                  placeholder={form.discountType === 'percentage' ? '20' : '50'}
+                  value={form.discountValue}
+                  onChangeText={(text) => setForm({ ...form, discountValue: text })}
+                  keyboardType="decimal-pad"
                   placeholderTextColor="#999"
                 />
-                <Text style={styles.percentSign}>%</Text>
+                <Text style={styles.unitSign}>{form.discountType === 'percentage' ? '%' : '$'}</Text>
               </View>
 
-              <Text style={styles.label}>Description</Text>
+              <Text style={styles.label}>Description *</Text>
               <TextInput
                 style={[styles.input, styles.textArea]}
                 placeholder="e.g., 20% off summer sale on all equipment"
@@ -253,30 +318,48 @@ export default function AdminPromoCodesScreen() {
                 placeholderTextColor="#999"
               />
 
+              <Text style={styles.label}>Minimum Purchase Amount ($)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="0"
+                value={form.minPurchaseAmount}
+                onChangeText={(text) => setForm({ ...form, minPurchaseAmount: text })}
+                keyboardType="decimal-pad"
+                placeholderTextColor="#999"
+              />
+
+              <Text style={styles.label}>Maximum Uses (Leave empty for unlimited)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g., 100"
+                value={form.maxUses}
+                onChangeText={(text) => setForm({ ...form, maxUses: text })}
+                keyboardType="numeric"
+                placeholderTextColor="#999"
+              />
+
               <Text style={styles.label}>Expiration Date (YYYY-MM-DD)</Text>
               <TextInput
                 style={styles.input}
-                placeholder="2024-12-31"
+                placeholder="e.g., 2025-12-31"
                 value={form.expiresAt}
                 onChangeText={(text) => setForm({ ...form, expiresAt: text })}
                 placeholderTextColor="#999"
               />
-
-              {editingId && (
-                <View style={styles.infoBox}>
-                  <Ionicons name="information-circle-outline" size={16} color="#0066cc" />
-                  <Text style={styles.infoText}>Original code cannot be changed. Create a new code if needed.</Text>
-                </View>
-              )}
             </ScrollView>
 
             <View style={styles.modalFooter}>
-              <TouchableOpacity style={styles.cancelButton} onPress={() => setShowForm(false)}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => setShowForm(false)}
+              >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.saveButton} onPress={handleSavePromo}>
-                <Ionicons name="checkmark" size={20} color="#fff" style={{ marginRight: 8 }} />
-                <Text style={styles.saveButtonText}>{editingId ? 'Update' : 'Create'}</Text>
+              <TouchableOpacity
+                style={styles.saveButton}
+                onPress={handleSavePromo}
+              >
+                <Text style={styles.saveButtonText}>Save Promo Code</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -292,24 +375,27 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   header: {
-    backgroundColor: '#4B5563',
-    paddingStart: 20,
-    paddingEnd: 20,
-    paddingTop: 20,
-    paddingBottom: 20,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingHorizontal: 15,
+    paddingVertical: 15,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
   },
   title: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
-    color: '#fff',
+    color: '#000',
   },
   addButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    backgroundColor: '#000000',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
     backgroundColor: '#FF8C42',
     justifyContent: 'center',
     alignItems: 'center',
@@ -548,5 +634,44 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#fff',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  discountTypeContainer: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 15,
+  },
+  typeButton: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#ddd',
+    backgroundColor: '#f9f9f9',
+  },
+  typeButtonActive: {
+    borderColor: '#000',
+    backgroundColor: '#000',
+  },
+  typeButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666',
+    textAlign: 'center',
+  },
+  typeButtonTextActive: {
+    color: '#fff',
+  },
+  unitSign: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginLeft: -8,
+    zIndex: 1,
   },
 });

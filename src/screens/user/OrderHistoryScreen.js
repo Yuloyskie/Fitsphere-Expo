@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Image, ImageBackground } from 'react-native';
 import { useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -60,7 +60,12 @@ export default function OrderHistoryScreen({ navigation }) {
   );
 
   return (
-    <View style={styles.container}>
+    <ImageBackground
+      source={require('../../../images/StoreBg.webp')}
+      style={styles.container}
+    >
+      <View style={styles.overlayWhite} />
+      <View style={styles.container}>
       {orders.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Ionicons name="receipt-outline" size={80} color="#ddd" />
@@ -78,7 +83,8 @@ export default function OrderHistoryScreen({ navigation }) {
           contentContainerStyle={styles.listContent}
         />
       )}
-    </View>
+      </View>
+    </ImageBackground>
   );
 }
 
@@ -196,5 +202,13 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  overlayWhite: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
   },
 });

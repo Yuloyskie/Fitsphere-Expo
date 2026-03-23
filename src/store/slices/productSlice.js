@@ -29,6 +29,36 @@ export const fetchCategories = createAsyncThunk(
   }
 );
 
+export const createCategory = createAsyncThunk(
+  'products/createCategory',
+  async (categoryData) => {
+    const response = await apiPost('/categories', categoryData);
+    return {
+      ...response.category,
+      id: response.category.id || response.category._id,
+    };
+  }
+);
+
+export const updateCategory = createAsyncThunk(
+  'products/updateCategory',
+  async ({ id, data }) => {
+    const response = await apiPut(`/categories/${id}`, data);
+    return {
+      ...response.category,
+      id: response.category.id || response.category._id,
+    };
+  }
+);
+
+export const deleteCategory = createAsyncThunk(
+  'products/deleteCategory',
+  async (categoryId) => {
+    await apiDelete(`/categories/${categoryId}`);
+    return categoryId;
+  }
+);
+
 export const fetchProductById = createAsyncThunk(
   'products/fetchProductById',
   async (productId) => {
@@ -292,6 +322,18 @@ const productSlice = createSlice({
           state.filteredProducts[filteredIndex].reviews = (state.filteredProducts[filteredIndex].reviews || []).filter(r => r.id !== reviewId);
           recalculateRating(state.filteredProducts[filteredIndex]);
         }
+      })
+      .addCase(createCategory.fulfilled, (state, action) => {
+        state.categories.unshift(action.payload);
+      })
+      .addCase(updateCategory.fulfilled, (state, action) => {
+        const index = state.categories.findIndex(c => c.id === action.payload.id);
+        if (index !== -1) {
+          state.categories[index] = action.payload;
+        }
+      })
+      .addCase(deleteCategory.fulfilled, (state, action) => {
+        state.categories = state.categories.filter(c => c.id !== action.payload);
       });
   },
 });

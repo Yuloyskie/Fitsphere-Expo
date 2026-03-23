@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Image, ScrollView, RefreshControl, Modal } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Image, ScrollView, RefreshControl, Modal, ImageBackground } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchProducts, fetchCategories, fetchProductsByCategory, setSelectedCategory } from '../../store/slices/productSlice';
 import { addNotification, removeNotification } from '../../store/slices/notificationSlice';
@@ -212,7 +212,11 @@ color={selectedCategory === item.id ? '#fff' : '#000000'}
   );
 
   return (
-    <View style={styles.container}>
+    <ImageBackground 
+      source={require('../../../images/StoreBg.webp')}
+      style={styles.container}
+    >
+      <View style={styles.overlayWhite} />
       <FlatList
         data={displayedProducts}
         renderItem={renderProductItem}
@@ -272,14 +276,21 @@ color={selectedCategory === item.id ? '#fff' : '#000000'}
           )}
         </View>
       </Modal>
-    </View>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+  },
+  overlayWhite: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
   },
   notificationButton: {
     padding: 8,

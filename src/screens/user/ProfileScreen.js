@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, Alert, ImageBackground } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { logout } from '../../store/slices/authSlice';
 import { Ionicons } from '@expo/vector-icons';
@@ -103,7 +103,12 @@ export default function ProfileScreen({ navigation }) {
   ];
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <ImageBackground
+      source={require('../../../images/StoreBg.webp')}
+      style={styles.container}
+    >
+      <View style={styles.overlayWhite} />
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
         <View style={styles.profileImageContainer}>
           {user?.profileImage ? (
@@ -153,6 +158,7 @@ export default function ProfileScreen({ navigation }) {
 
       <Text style={styles.version}>Version 1.0.0</Text>
     </ScrollView>
+    </ImageBackground>
   );
 }
 
@@ -269,5 +275,13 @@ const styles = StyleSheet.create({
     color: '#999',
     marginTop: 20,
     marginBottom: 30,
+  },
+  overlayWhite: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
   },
 });
