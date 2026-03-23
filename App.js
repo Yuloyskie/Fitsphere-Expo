@@ -58,18 +58,23 @@ function AppContent() {
     dispatch(loadCart());
     dispatch(loadUser());
 
+    // Initialize notifications
+    notificationService.initializeNotifications().then(() => {
+      console.log('🔔 Notifications initialized');
+    });
+
     let responseSubscription;
     let receivedSubscription;
 
     // Handle notification response (when user taps notification)
-    notificationService.addNotificationResponseReceivedListener((response) => {
-      handleNotificationResponse(response, dispatch);
-    }).then((subscription) => {
-      responseSubscription = subscription;
+    responseSubscription = notificationService.addNotificationResponseListener((notificationData) => {
+      console.log('📲 Notification response received:', notificationData);
+      handleNotificationResponse({ notification: { request: { content: notificationData } } }, dispatch);
     });
 
     // Handle notification received (when app is in foreground)
-    notificationService.addNotificationReceivedListener((notification) => {
+    receivedSubscription = notificationService.addNotificationReceivedListener((notification) => {
+      console.log('🔔 Notification received:', notification.request.content);
       const data = notification?.request?.content?.data || {};
       const title = notification?.request?.content?.title || 'Notification';
       const body = notification?.request?.content?.body || 'You have a new notification';
@@ -78,15 +83,16 @@ function AppContent() {
       dispatch(addNotification({
         title,
         body,
+        timestamp: new Date().toISOString(),
         ...data,
       }));
-    }).then((subscription) => {
-      receivedSubscription = subscription;
     });
 
+    // Check if app was launched from notification
     notificationService.getLastNotificationResponse().then((response) => {
       if (response) {
-        handleNotificationResponse(response, dispatch);
+        console.log('📴 App opened from notification:', response);
+        handleNotificationResponse({ notification: { request: { content: response } } }, dispatch);
       }
     });
 

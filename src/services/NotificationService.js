@@ -1,82 +1,105 @@
-import Constants from 'expo-constants';
+import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Device from 'expo-device';
+import Constants from 'expo-constants';
 
-const isExpoGo =
-  Constants.executionEnvironment === 'storeClient' || Constants.appOwnership === 'expo';
+// Check if running in Expo Go
+const isExpoGo = Constants.appOwnership === 'expo';
 
-let notificationsModule = null;
-
-const getNotificationsModule = async () => {
-  if (isExpoGo) {
-    return null;
-  }
-
-  if (!notificationsModule) {
-    const imported = await import('expo-notifications');
-    notificationsModule = imported;
-
-    notificationsModule.setNotificationHandler({
-      handleNotification: async () => ({
-        shouldShowAlert: true,
-        shouldPlaySound: true,
-        shouldSetBadge: true,
-      }),
-    });
-  }
-
-  return notificationsModule;
-};
+// Only set notification handler if not in Expo Go (to avoid the warning)
+if (!isExpoGo) {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    }),
+  });
+}
 
 export const notificationService = {
+  // Initialize notification listeners
+  initializeNotifications: async () => {
+    try {
+      if (isExpoGo) {
+        console.log('✅ Running in Expo Go - notifications will work in production APK');
+        return true;
+      }
+
+      // Request permissions first
+      await notificationService.requestPermissions();
+
+      // Register for push notifications
+      if (Device.isDevice) {
+        const token = await notificationService.getPushToken();
+        if (token) {
+          await notificationService.savePushToken(token);
+          console.log('✅ Push token obtained:', token?.slice(0, 20) + '...');
+        }
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error initializing notifications:', error);
+      return false;
+    }
+  },
+
   // Request permissions for push notifications
   requestPermissions: async () => {
-    const Notifications = await getNotificationsModule();
-    if (!Notifications) {
-      return false;
-    }
+    try {
+      // Skip permission request in Expo Go
+      if (isExpoGo) {
+        return true;
+      }
 
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
-    
-    if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
-    }
-    
-    if (finalStatus !== 'granted') {
-      console.log('Failed to get push notification permissions');
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+
+      if (finalStatus !== 'granted') {
+        console.log('❌ Notification permissions not granted');
+        return false;
+      }
+
+      console.log('✅ Notification permissions granted');
+      return true;
+    } catch (error) {
+      console.error('Error requesting notification permissions:', error);
       return false;
     }
-    
-    return true;
   },
 
   // Get the push notification token
   getPushToken: async () => {
     try {
+      if (!Device.isDevice) {
+        console.log('ℹ️ Not a physical device - push notifications may not work');
+        return null;
+      }
+      // Skip in Expo Go - just return null to avoid warning
       if (isExpoGo) {
+        console.log('ℹ️  Expo Go mode - push notifications will work in production APK');
         return null;
       }
-
-      const Notifications = await getNotificationsModule();
-      if (!Notifications) {
-        return null;
-      }
-
-      const hasPermission = await notificationService.requestPermissions();
-      if (!hasPermission) return null;
-
-      const { data: token } = await Notifications.getExpoPushTokenAsync();
-      return token;
+      const token = await Notifications.getExpoPushTokenAsync();
+      return token.data;
     } catch (error) {
-      console.error('Error getting push token:', error);
+      console.error('❌ Error getting push token:', error);
       return null;
     }
   },
 
-  // Save push token to user model (stored locally)
+  // Save push token to local storage
   savePushToken: async (token) => {
     try {
+      if (isExpoGo || !token) {
+        return true;
+      }
       await AsyncStorage.setItem('pushToken', token);
       return true;
     } catch (error) {
@@ -95,7 +118,7 @@ export const notificationService = {
     }
   },
 
-  // Remove stale push token
+  // Remove push token
   removePushToken: async () => {
     try {
       await AsyncStorage.removeItem('pushToken');
@@ -108,78 +131,116 @@ export const notificationService = {
 
   // Send a local notification (for testing)
   sendLocalNotification: async (title, body, data = {}) => {
-    const Notifications = await getNotificationsModule();
-    if (!Notifications) {
-      return;
+    try {
+      if (isExpoGo) {
+        console.log('📱 [Expo Go] Would send notification:', title);
+        return;
+      }
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title,
+          body,
+          data,
+          sound: 'default',
+          badge: 1,
+        },
+        trigger: null, // Send immediately
+      });
+      console.log('✅ Local notification sent:', title);
+    } catch (error) {
+      console.error('Error sending local notification:', error);
     }
-
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title,
-        body,
-        data,
-        sound: true,
-      },
-      trigger: null, // Send immediately
-    });
   },
 
-  // Schedule a notification for promotions
-  schedulePromotionNotification: async (title, body, secondsFromNow = 60) => {
-    const Notifications = await getNotificationsModule();
-    if (!Notifications) {
-      return;
+  // Schedule a notification
+  scheduleNotification: async (title, body, data = {}, secondsFromNow = 5) => {
+    try {
+      if (isExpoGo) {
+        console.log('📱 [Expo Go] Would schedule notification:', title);
+        return;
+      }
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title,
+          body,
+          data,
+          sound: 'default',
+          badge: 1,
+        },
+        trigger: {
+          seconds: secondsFromNow,
+        },
+      });
+      console.log('✅ Notification scheduled:', title);
+    } catch (error) {
+      console.error('Error scheduling notification:', error);
     }
+  },
 
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title,
-        body,
-        sound: true,
-      },
-      trigger: {
-        seconds: secondsFromNow,
-      },
-    });
+  // Schedule a promotion notification
+  schedulePromotionNotification: async (title, body, secondsFromNow = 60) => {
+    return notificationService.scheduleNotification(title, body, { type: 'promotion' }, secondsFromNow);
   },
 
   // Cancel all scheduled notifications
   cancelAllNotifications: async () => {
-    const Notifications = await getNotificationsModule();
-    if (!Notifications) {
-      return;
+    try {
+      if (isExpoGo) {
+        return;
+      }
+      await Notifications.cancelAllScheduledNotificationsAsync();
+      console.log('✅ All scheduled notifications cancelled');
+    } catch (error) {
+      console.error('Error cancelling notifications:', error);
     }
-
-    await Notifications.cancelAllScheduledNotificationsAsync();
   },
 
-  // Add notification received listener
-  addNotificationReceivedListener: async (callback) => {
-    const Notifications = await getNotificationsModule();
-    if (!Notifications) {
+  // Add listener for notifications received in foreground
+  addNotificationReceivedListener: (callback) => {
+    if (isExpoGo) {
+      // Return a dummy listener in Expo Go to avoid warnings
       return { remove: () => {} };
     }
-
-    return Notifications.addNotificationReceivedListener(callback);
+    const listener = Notifications.addNotificationReceivedListener(callback);
+    return listener;
   },
 
-  // Add notification response listener (when user taps notification)
-  addNotificationResponseReceivedListener: async (callback) => {
-    const Notifications = await getNotificationsModule();
-    if (!Notifications) {
+  // Add listener for notification responses (when user taps notification)
+  addNotificationResponseListener: (callback) => {
+    if (isExpoGo) {
+      // Return a dummy listener in Expo Go to avoid warnings
       return { remove: () => {} };
     }
-
-    return Notifications.addNotificationResponseReceivedListener(callback);
+    const listener = Notifications.addNotificationResponseReceivedListener((response) => {
+      const { title, body, data } = response.notification.request.content;
+      callback({
+        title,
+        body,
+        data,
+      });
+    });
+    return listener;
   },
 
+  // Get last notification response (for deep linking on app launch)
   getLastNotificationResponse: async () => {
-    const Notifications = await getNotificationsModule();
-    if (!Notifications) {
+    if (isExpoGo) {
       return null;
     }
-
-    return Notifications.getLastNotificationResponseAsync();
+    try {
+      const response = await Notifications.getLastNotificationResponseAsync();
+      if (response?.notification) {
+        return {
+          title: response.notification.request.content.title,
+          body: response.notification.request.content.body,
+          data: response.notification.request.content.data,
+        };
+      }
+      return null;
+    } catch (error) {
+      console.error('Error getting last notification response:', error);
+      return null;
+    }
   },
 };
 

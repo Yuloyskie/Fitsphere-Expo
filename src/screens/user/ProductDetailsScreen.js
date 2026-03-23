@@ -62,7 +62,11 @@ export default function ProductDetailsScreen({ route, navigation }) {
     <View style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.imageContainer}>
-          <Image source={{ uri: images[selectedImageIndex] }} style={styles.mainImage} />
+          <Image 
+            source={{ uri: images[selectedImageIndex] || 'https://via.placeholder.com/400?text=No+Image' }} 
+            style={styles.mainImage}
+            onError={() => console.log('Main image failed to load')}
+          />
           {images.length > 1 && (
             <View style={styles.thumbnailContainer}>
               {images.map((img, index) => (
@@ -71,7 +75,11 @@ export default function ProductDetailsScreen({ route, navigation }) {
                   onPress={() => setSelectedImageIndex(index)}
                   style={[styles.thumbnail, selectedImageIndex === index && styles.thumbnailActive]}
                 >
-                  <Image source={{ uri: img }} style={styles.thumbnailImage} />
+                  <Image 
+                    source={{ uri: img || 'https://via.placeholder.com/100?text=No+Image' }} 
+                    style={styles.thumbnailImage}
+                    onError={() => console.log('Thumbnail failed to load')}
+                  />
                 </TouchableOpacity>
               ))}
             </View>

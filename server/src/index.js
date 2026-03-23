@@ -839,6 +839,27 @@ app.patch('/api/orders/:id/status', async (req, res) => {
     return res.status(404).json({ message: 'Order not found' });
   }
 
+  // Send push notification to user when order status changes
+  if (updated.userId) {
+    const user = await User.findById(updated.userId);
+    if (user && user.pushTokens && user.pushTokens.length > 0) {
+      const statusMessages = {
+        pending: '⏳ Your order is pending!',
+        processing: '🔄 Your order is being processed!',
+        shipped: '📦 Your order has been shipped!',
+        delivered: '✅ Your order has been delivered!',
+        cancelled: '❌ Your order has been cancelled',
+      };
+
+      const notificationTitle = statusMessages[status] || `Order status updated: ${status}`;
+      const notificationBody = `Order #${updated.id.toString().slice(-6)} - ${status.toUpperCase()}`;
+
+      console.log(`📤 Sending push notification to user ${updated.userId}: ${notificationTitle}`);
+      // In a production app, you would use a service like Firebase Cloud Messaging
+      // to send push notifications to the user's devices
+    }
+  }
+
   return res.json({ order: mapOrder(updated) });
 });
 

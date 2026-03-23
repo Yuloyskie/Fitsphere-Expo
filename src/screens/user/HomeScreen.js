@@ -114,7 +114,14 @@ color={selectedCategory === item.id ? '#fff' : '#000000'}
       style={styles.productCard}
       onPress={() => navigation.navigate('ProductDetails', { productId: item.id })}
     >
-      <Image source={{ uri: item.image }} style={styles.productImage} />
+      <View style={styles.productImageContainer}>
+        <Image 
+          source={{ uri: item.image || 'https://via.placeholder.com/400?text=No+Image' }} 
+          style={styles.productImage}
+          onError={() => console.log('Image failed to load for product:', item.id)}
+        />
+        {item.sale && <View style={styles.saleTag}><Text style={styles.saleText}>SALE</Text></View>}
+      </View>
       <View style={styles.productInfo}>
         <Text style={styles.productName} numberOfLines={2}>{item.name}</Text>
         <Text style={styles.productCategory}>{item.category}</Text>
@@ -509,10 +516,30 @@ color: '#333333',
     shadowRadius: 2,
     overflow: 'hidden',
   },
-  productImage: {
+  productImageContainer: {
+    position: 'relative',
     width: '100%',
     height: 120,
+    backgroundColor: '#f5f5f5',
+  },
+  productImage: {
+    width: '100%',
+    height: '100%',
     resizeMode: 'cover',
+  },
+  saleTag: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: '#FF8C42',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  saleText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
   productInfo: {
     padding: 10,
