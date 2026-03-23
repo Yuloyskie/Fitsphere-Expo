@@ -10,12 +10,22 @@ import AppNavigator from './src/navigation/AppNavigator';
 import { loadCart } from './src/store/slices/cartSlice';
 import { loadUser } from './src/store/slices/authSlice';
 import { fetchOrders, fetchAllOrders, clearOrders } from './src/store/slices/orderSlice';
+import { addNotification } from './src/store/slices/notificationSlice';
 import notificationService from './src/services/NotificationService';
 
 const navigationRef = createNavigationContainerRef();
 
-const handleNotificationResponse = (response) => {
+const handleNotificationResponse = (response, dispatch) => {
   const data = response?.notification?.request?.content?.data || {};
+  const title = response?.notification?.request?.content?.title || 'Notification';
+  const body = response?.notification?.request?.content?.body || 'You have a new notification';
+
+  // Add notification to Redux store
+  dispatch(addNotification({
+    title,
+    body,
+    ...data,
+  }));
 
   if (!navigationRef.isReady()) {
     return;
@@ -32,8 +42,8 @@ const handleNotificationResponse = (response) => {
   navigationRef.navigate('UserStack', {
     screen: 'NotificationDetails',
     params: {
-      title: response?.notification?.request?.content?.title,
-      body: response?.notification?.request?.content?.body,
+      title,
+      body,
       data,
     },
   });
@@ -49,20 +59,43 @@ function AppContent() {
     dispatch(loadUser());
 
     let responseSubscription;
+    let receivedSubscription;
 
-    notificationService.addNotificationResponseReceivedListener(handleNotificationResponse).then((subscription) => {
+    // Handle notification response (when user taps notification)
+    notificationService.addNotificationResponseReceivedListener((response) => {
+      handleNotificationResponse(response, dispatch);
+    }).then((subscription) => {
       responseSubscription = subscription;
+    });
+
+    // Handle notification received (when app is in foreground)
+    notificationService.addNotificationReceivedListener((notification) => {
+      const data = notification?.request?.content?.data || {};
+      const title = notification?.request?.content?.title || 'Notification';
+      const body = notification?.request?.content?.body || 'You have a new notification';
+      
+      // Add notification to Redux store
+      dispatch(addNotification({
+        title,
+        body,
+        ...data,
+      }));
+    }).then((subscription) => {
+      receivedSubscription = subscription;
     });
 
     notificationService.getLastNotificationResponse().then((response) => {
       if (response) {
-        handleNotificationResponse(response);
+        handleNotificationResponse(response, dispatch);
       }
     });
 
     return () => {
       if (responseSubscription?.remove) {
         responseSubscription.remove();
+      }
+      if (receivedSubscription?.remove) {
+        receivedSubscription.remove();
       }
     };
   }, [dispatch]);

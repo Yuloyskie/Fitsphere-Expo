@@ -1158,6 +1158,22 @@ const seedDefaults = async () => {
       });
     }
   }
+
+  // Seed default categories
+  const categoriesCount = await Category.countDocuments();
+  if (categoriesCount === 0) {
+    const defaultCategories = [
+      { name: 'Cardio Equipment', icon: 'heart' },
+      { name: 'Strength Training Equipment', icon: 'fitness' },
+      { name: 'Weight Machines', icon: 'hardware-chip' },
+      { name: 'Functional Training Equipment', icon: 'construct' },
+      { name: 'Bodyweight / Calisthenics Equipment', icon: 'body' },
+      { name: 'Flexibility & Recovery Equipment', icon: 'medkit' },
+      { name: 'Specialized / Sports Equipment', icon: 'baseball' },
+    ];
+    await Category.insertMany(defaultCategories);
+    console.log('Default categories seeded successfully!');
+  }
 };
 
 const start = async () => {

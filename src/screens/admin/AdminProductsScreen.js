@@ -19,19 +19,9 @@ import {
   updateProduct,
   deleteProduct,
   fetchProducts,
+  fetchCategories,
 } from '../../store/slices/productSlice';
 import { Ionicons } from '@expo/vector-icons';
-
-const EQUIPMENT_CATEGORIES = [
-  'Cardio Equipment',
-  'Strength Training Equipment',
-  'Weight Machines',
-  'Functional Training Equipment',
-  'Bodyweight / Calisthenics Equipment',
-  'Flexibility & Recovery Equipment',
-  'Core Training Equipment',
-  'Specialized / Sports Equipment',
-];
 
 const initialForm = {
   id: null,
@@ -39,7 +29,8 @@ const initialForm = {
   description: '',
   price: '',
   originalPrice: '',
-  category: EQUIPMENT_CATEGORIES[0],
+  categoryId: '',
+  category: '',
   stock: '',
   brand: '',
   image: '',
@@ -49,6 +40,7 @@ const initialForm = {
 export default function AdminProductsScreen() {
   const dispatch = useDispatch();
   const products = useSelector(state => state.products.products);
+  const categories = useSelector(state => state.products.categories);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
@@ -57,27 +49,26 @@ export default function AdminProductsScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState(initialForm);
 
-  // Fetch products in real-time whenever screen comes into focus
+  // Fetch products and categories in real-time whenever screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
       dispatch(fetchProducts());
+      dispatch(fetchCategories());
     }, [dispatch])
   );
 
-  const categoryOptions = useMemo(() => {
-    return ['all', ...EQUIPMENT_CATEGORIES];
-  }, []);
-
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = filterCategory === 'all' || product.category === filterCategory;
+    const matchesCategory = filterCategory === 'all' || product.categoryId === filterCategory;
     return matchesSearch && matchesCategory;
   });
 
   const handleAddProduct = () => {
+    const firstCategory = categories[0];
     setForm({
       ...initialForm,
-      category: EQUIPMENT_CATEGORIES[0],
+      categoryId: firstCategory?.id || '',
+      category: firstCategory?.name || '',
     });
     setShowForm(true);
   };
@@ -89,7 +80,8 @@ export default function AdminProductsScreen() {
       description: product.description || '',
       price: String(product.price ?? ''),
       originalPrice: String(product.originalPrice ?? ''),
-      category: product.category || EQUIPMENT_CATEGORIES[0],
+      categoryId: product.categoryId || '',
+      category: product.category || '',
       stock: String(product.stock ?? ''),
       brand: product.brand || '',
       image: product.image || '',
@@ -159,7 +151,7 @@ export default function AdminProductsScreen() {
   };
 
   const handleSaveProduct = async () => {
-    if (!form.name.trim() || !form.price || !form.stock || !form.category) {
+    if (!form.name.trim() || !form.price || !form.stock || !form.categoryId) {
       Alert.alert('Missing fields', 'Name, price, stock, and category are required.');
       return;
     }
@@ -171,7 +163,7 @@ export default function AdminProductsScreen() {
       price: Number(form.price),
       originalPrice: Number(form.originalPrice || form.price),
       category: form.category,
-      categoryId: form.category,
+      categoryId: form.categoryId,
       image: form.image || 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=400',
       images: [form.image || 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=400'],
       stock: Number(form.stock),
@@ -346,32 +338,32 @@ export default function AdminProductsScreen() {
             style={styles.categoryDropdownToggle}
             onPress={() => setShowCategoryDropdown(!showCategoryDropdown)}
           >
-            <Text style={styles.categoryDropdownText}>{form.category}</Text>
+            <Text style={styles.categoryDropdownText}>{form.category || 'Select a category'}</Text>
             <Text style={styles.dropdownArrow}>▼</Text>
           </TouchableOpacity>
           
           {showCategoryDropdown && (
             <View style={styles.categoryDropdownMenu}>
               <ScrollView nestedScrollEnabled style={styles.categoryDropdownScroll}>
-                {EQUIPMENT_CATEGORIES.map((cat) => (
+                {categories.map((cat) => (
                   <TouchableOpacity
-                    key={cat}
+                    key={cat.id}
                     style={[
                       styles.categoryDropdownItem,
-                      form.category === cat && styles.categoryDropdownItemActive,
+                      form.categoryId === cat.id && styles.categoryDropdownItemActive,
                     ]}
                     onPress={() => {
-                      setForm(prev => ({ ...prev, category: cat }));
+                      setForm(prev => ({ ...prev, categoryId: cat.id, category: cat.name }));
                       setShowCategoryDropdown(false);
                     }}
                   >
                     <Text
                       style={[
                         styles.categoryDropdownItemText,
-                        form.category === cat && styles.categoryDropdownItemTextActive,
+                        form.categoryId === cat.id && styles.categoryDropdownItemTextActive,
                       ]}
                     >
-                      {cat}
+                      {cat.name}
                     </Text>
                   </TouchableOpacity>
                 ))}

@@ -2,14 +2,18 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, Image, ScrollView, RefreshControl, Modal } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchProducts, fetchCategories, fetchProductsByCategory, setSelectedCategory } from '../../store/slices/productSlice';
+import { addNotification, removeNotification } from '../../store/slices/notificationSlice';
 import { Ionicons } from '@expo/vector-icons';
 import LoadingComponent from '../../components/LoadingComponent';
+import { useFocusEffect } from '@react-navigation/native';
 
 export default function HomeScreen({ navigation }) {
   const dispatch = useDispatch();
   const { products, categories, filteredProducts, selectedCategory, loading } = useSelector(state => state.products);
+  const notifications = useSelector(state => state.notifications.notifications);
   const [refreshing, setRefreshing] = useState(false);
   const [showSale, setShowSale] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   useEffect(() => {
     dispatch(fetchProducts());
@@ -19,6 +23,29 @@ export default function HomeScreen({ navigation }) {
   useEffect(() => {
     dispatch(fetchProductsByCategory(selectedCategory));
   }, [selectedCategory, dispatch]);
+
+  // Set notification icon button in header
+  useFocusEffect(
+    React.useCallback(() => {
+      navigation.setOptions({
+        headerRight: () => (
+          <TouchableOpacity 
+            style={styles.notificationButton}
+            onPress={() => setShowNotifications(true)}
+          >
+            <Ionicons name="notifications" size={24} color="#000000" />
+            {notifications.length > 0 && (
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationBadgeText}>
+                  {notifications.length > 9 ? '9+' : notifications.length}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        ),
+      });
+    }, [navigation, notifications])
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -34,6 +61,33 @@ export default function HomeScreen({ navigation }) {
 
   const handleShopNow = () => {
     setShowSale(true);
+  };
+
+  const handleNotificationClick = (notification) => {
+    setShowNotifications(false);
+    
+    if (notification.orderId) {
+      navigation.navigate('OrderDetails', { orderId: notification.orderId });
+    } else if (notification.productId) {
+      navigation.navigate('ProductDetails', { productId: notification.productId });
+    } else {
+      navigation.navigate('NotificationDetails', {
+        title: notification.title,
+        body: notification.body,
+      });
+    }
+
+    // Remove notification from Redux
+    dispatch(removeNotification(notification.id));
+  };
+
+  // Add test notification to Redux
+  const addTestNotification = () => {
+    dispatch(addNotification({
+      title: 'Order Processed',
+      body: 'Your order #12345 has been processed',
+      orderId: '67890',
+    }));
   };
 
   // Filter products based on sale status
@@ -79,6 +133,30 @@ color={selectedCategory === item.id ? '#fff' : '#000000'}
     </TouchableOpacity>
   );
 
+  const renderNotificationItem = ({ item }) => (
+    <TouchableOpacity
+      style={styles.notificationItem}
+      onPress={() => handleNotificationClick(item)}
+    >
+      <View style={styles.notificationIconContainer}>
+        <Ionicons name="notifications" size={24} color="#FF8C42" />
+      </View>
+      <View style={styles.notificationContent}>
+        <Text style={styles.notificationItemTitle}>{item.title}</Text>
+        <Text style={styles.notificationItemBody} numberOfLines={2}>{item.body}</Text>
+        <Text style={styles.notificationTime}>
+          {item.timestamp ? new Date(item.timestamp).toLocaleString() : ''}
+        </Text>
+      </View>
+      <TouchableOpacity
+        onPress={() => handleNotificationClick(item)}
+        style={styles.notificationArrow}
+      >
+        <Ionicons name="chevron-forward" size={20} color="#999" />
+      </TouchableOpacity>
+    </TouchableOpacity>
+  );
+
   const renderHeader = () => (
     <View>
       {/* Banner */}
@@ -100,8 +178,10 @@ color={selectedCategory === item.id ? '#fff' : '#000000'}
               data={[{ id: 'all', name: 'All', icon: 'apps' }, ...categories]}
               renderItem={renderCategoryItem}
               keyExtractor={item => item.id}
+              horizontal={true}
               scrollEnabled={true}
-              nestedScrollEnabled={true}
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.categoriesListContent}
               style={styles.categoriesList}
             />
           </View>
@@ -155,6 +235,43 @@ color={selectedCategory === item.id ? '#fff' : '#000000'}
           </View>
         </Modal>
       )}
+
+      {/* Notifications Modal */}
+      <Modal
+        visible={showNotifications}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowNotifications(false)}
+      >
+        <View style={styles.notificationsModal}>
+          <View style={styles.notificationsHeader}>
+            <Text style={styles.notificationsTitle}>Notifications</Text>
+            <TouchableOpacity onPress={() => setShowNotifications(false)}>
+              <Ionicons name="close" size={28} color="#000" />
+            </TouchableOpacity>
+          </View>
+
+          {notifications.length === 0 ? (
+            <View style={styles.noNotificationsContainer}>
+              <Ionicons name="notifications-off-outline" size={60} color="#ccc" />
+              <Text style={styles.noNotificationsText}>No notifications yet</Text>
+              <TouchableOpacity 
+                style={styles.testNotificationButton}
+                onPress={addTestNotification}
+              >
+                <Text style={styles.testNotificationButtonText}>Add Test Notification</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <FlatList
+              data={notifications}
+              renderItem={renderNotificationItem}
+              keyExtractor={item => item.id}
+              contentContainerStyle={styles.notificationsList}
+            />
+          )}
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -163,6 +280,109 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  notificationButton: {
+    padding: 8,
+    position: 'relative',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    backgroundColor: '#FF8C42',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  notificationBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  notificationsModal: {
+    flex: 1,
+    backgroundColor: '#fff',
+    marginTop: 40,
+  },
+  notificationsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  notificationsTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#000',
+  },
+  notificationsList: {
+    paddingVertical: 10,
+  },
+  notificationItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  notificationIconContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#FFF3E0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  notificationContent: {
+    flex: 1,
+  },
+  notificationItemTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#000',
+    marginBottom: 4,
+  },
+  notificationItemBody: {
+    fontSize: 13,
+    color: '#666',
+    marginBottom: 4,
+  },
+  notificationTime: {
+    fontSize: 11,
+    color: '#999',
+  },
+  notificationArrow: {
+    padding: 5,
+  },
+  noNotificationsContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  noNotificationsText: {
+    fontSize: 16,
+    color: '#999',
+    marginTop: 15,
+    marginBottom: 30,
+  },
+  testNotificationButton: {
+    backgroundColor: '#FF8C42',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  testNotificationButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
   loadingOverlay: {
     flex: 1,
@@ -227,6 +447,9 @@ color: '#000000',
   categoriesList: {
     flexGrow: 0,
   },
+  categoriesListContent: {
+    paddingHorizontal: 5,
+  },
 sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
@@ -238,8 +461,8 @@ sectionTitle: {
     backgroundColor: '#fff',
     paddingVertical: 12,
     paddingHorizontal: 15,
+    marginRight: 10,
     marginBottom: 10,
-    marginRight: 0,
     borderRadius: 10,
     elevation: 2,
     shadowColor: '#000',

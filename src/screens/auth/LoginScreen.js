@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const dispatch = useDispatch();
   const { loading, error } = useSelector(state => state.auth);
 
@@ -61,25 +62,39 @@ export default function LoginScreen({ navigation }) {
 
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Email</Text>
-            <TextInput
-              style={styles.input}
-              value={email}
-              onChangeText={setEmail}
-              placeholder="Enter your email"
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
+            <View style={styles.emailInputContainer}>
+              <TextInput
+                style={styles.input}
+                value={email}
+                onChangeText={setEmail}
+                placeholder="Enter your email"
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
           </View>
 
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Password</Text>
-            <TextInput
-              style={styles.input}
-              value={password}
-              onChangeText={setPassword}
-              placeholder="Enter your password"
-              secureTextEntry
-            />
+            <View style={styles.passwordInputContainer}>
+              <TextInput
+                style={styles.input}
+                value={password}
+                onChangeText={setPassword}
+                placeholder="Enter your password"
+                secureTextEntry={!showPassword}
+              />
+              <TouchableOpacity 
+                style={styles.eyeIconButton}
+                onPress={() => setShowPassword(!showPassword)}
+              >
+                <Ionicons 
+                  name={showPassword ? 'eye' : 'eye-off'} 
+                  size={24} 
+                  color="#666" 
+                />
+              </TouchableOpacity>
+            </View>
           </View>
 
           <TouchableOpacity style={styles.loginButton} onPress={handleLogin} disabled={loading}>
@@ -187,11 +202,30 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   input: {
+    flex: 1,
+    padding: 12,
+    fontSize: 16,
+    borderWidth: 0,
+  },
+  emailInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
+    paddingRight: 10,
+  },
+  passwordInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    paddingRight: 10,
+  },
+  eyeIconButton: {
+    padding: 8,
+    marginLeft: -5,
   },
   loginButton: {
     backgroundColor: '#000000',

@@ -1,0 +1,32 @@
+{
+  "cli": {
+    "version": ">= 5.4.0",
+    "promptToConfigurePushNotifications": false
+  },
+  "build": {
+    "preview": {
+      "android": {
+        "buildType": "apk",
+        "env": {
+          "EXPO_PUBLIC_API_URL": "https://fitsphere-expo.onrender.com/api"
+        }
+      }
+    },
+    "production": {
+      "android": {
+        "buildType": "apk",
+        "env": {
+          "EXPO_PUBLIC_API_URL": "https://fitsphere-expo.onrender.com/api"
+        }
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "android": {
+        "serviceAccountKeyPath": "./android-keystore.json",
+        "track": "internal"
+      }
+    }
+  }
+}

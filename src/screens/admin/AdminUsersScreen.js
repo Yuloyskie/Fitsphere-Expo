@@ -21,6 +21,7 @@ export default function AdminUsersScreen() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(initialForm);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     dispatch(fetchAllUsers());
@@ -43,6 +44,7 @@ export default function AdminUsersScreen() {
 
   const openCreateModal = () => {
     setForm(initialForm);
+    setShowPassword(false);
     setShowAddModal(true);
   };
 
@@ -55,6 +57,7 @@ export default function AdminUsersScreen() {
       phone: user.phone || '',
       role: user.role || 'user',
     });
+    setShowPassword(false);
     setShowAddModal(true);
   };
 
@@ -211,7 +214,10 @@ export default function AdminUsersScreen() {
         }
       />
 
-      <Modal visible={showAddModal} animationType="slide" onRequestClose={() => setShowAddModal(false)}>
+      <Modal visible={showAddModal} animationType="slide" onRequestClose={() => {
+        setShowAddModal(false);
+        setShowPassword(false);
+      }}>
         <View style={styles.modalContainer}>
           <Text style={styles.modalTitle}>{form.id ? 'Edit User Account' : 'Create User Account'}</Text>
 
@@ -229,13 +235,25 @@ export default function AdminUsersScreen() {
             value={form.email}
             onChangeText={(value) => setForm(prev => ({ ...prev, email: value }))}
           />
-          <TextInput
-            style={styles.modalInput}
-            placeholder={form.id ? 'New Password (optional)' : 'Password'}
-            secureTextEntry
-            value={form.password}
-            onChangeText={(value) => setForm(prev => ({ ...prev, password: value }))}
-          />
+          <View style={styles.passwordModalInputContainer}>
+            <TextInput
+              style={styles.passwordModalInput}
+              placeholder={form.id ? 'New Password (optional)' : 'Password'}
+              secureTextEntry={!showPassword}
+              value={form.password}
+              onChangeText={(value) => setForm(prev => ({ ...prev, password: value }))}
+            />
+            <TouchableOpacity 
+              style={styles.eyeIconButtonModal}
+              onPress={() => setShowPassword(!showPassword)}
+            >
+              <Ionicons 
+                name={showPassword ? 'eye' : 'eye-off'} 
+                size={24} 
+                color="#666" 
+              />
+            </TouchableOpacity>
+          </View>
           <TextInput
             style={styles.modalInput}
             placeholder="Phone"
@@ -262,7 +280,10 @@ export default function AdminUsersScreen() {
           </View>
 
           <View style={styles.modalActions}>
-            <TouchableOpacity style={styles.cancelButton} onPress={() => setShowAddModal(false)}>
+            <TouchableOpacity style={styles.cancelButton} onPress={() => {
+              setShowAddModal(false);
+              setShowPassword(false);
+            }}>
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.saveButton} disabled={saving} onPress={handleSaveUser}>
@@ -430,6 +451,26 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     fontSize: 15,
     color: '#222',
+  },
+  passwordModalInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 10,
+    paddingRight: 12,
+    marginBottom: 12,
+  },
+  passwordModalInput: {
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: '#222',
+    borderWidth: 0,
+  },
+  eyeIconButtonModal: {
+    padding: 8,
   },
   roleRow: {
     marginTop: 4,
