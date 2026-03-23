@@ -8,7 +8,7 @@
       "android": {
         "buildType": "apk",
         "env": {
-          "EXPO_PUBLIC_API_URL": "https://fitsphere-expo.onrender.com/api"
+          "EXPO_PUBLIC_API_URL": "http://192.168.71.87:5000/api"
         }
       }
     },
