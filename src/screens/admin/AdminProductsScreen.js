@@ -57,9 +57,14 @@ export default function AdminProductsScreen() {
     }, [dispatch])
   );
 
+  // Build category options for filter
+  const categoryOptions = useMemo(() => {
+    return ['all', ...categories.map(cat => cat.name)];
+  }, [categories]);
+
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = filterCategory === 'all' || product.categoryId === filterCategory;
+    const matchesCategory = filterCategory === 'all' || product.category === filterCategory;
     return matchesSearch && matchesCategory;
   });
 

@@ -1,12 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, FlatList, Alert } from 'react-native';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
+import { fetchAllOrders } from '../../store/slices/orderSlice';
+import { fetchProducts, fetchCategories } from '../../store/slices/productSlice';
 
 export default function AdminReportsScreen({ navigation }) {
+  const dispatch = useDispatch();
   const orders = useSelector(state => state.orders.orders);
   const products = useSelector(state => state.products.products);
+  const categories = useSelector(state => state.products.categories);
   const [selectedPeriod, setSelectedPeriod] = useState('month');
+
+  // Fetch data on mount
+  useEffect(() => {
+    dispatch(fetchAllOrders());
+    dispatch(fetchProducts());
+    dispatch(fetchCategories());
+  }, [dispatch]);
 
   const periods = [
     { id: 'week', label: 'This Week' },
@@ -15,37 +26,76 @@ export default function AdminReportsScreen({ navigation }) {
     { id: 'year', label: 'This Year' },
   ];
 
-  // Calculate metrics
-  const totalRevenue = orders.reduce((acc, order) => acc + order.total, 0);
+  // Calculate metrics from real data
+  const totalRevenue = orders.reduce((acc, order) => acc + (order.total || 0), 0);
   const totalOrders = orders.length;
   const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
   const totalProducts = products.length;
   const lowStockProducts = products.filter(p => p.stock < 10).length;
 
-  // Mock data for charts - in real app would use a chart library
-  const topSellingProducts = [
-    { id: '1', name: 'Adjustable Dumbbell Set', sales: 145, revenue: 14455.55 },
-    { id: '2', name: 'Resistance Bands Set', sales: 132, revenue: 3956.68 },
-    { id: '3', name: 'Yoga Mat Premium', sales: 98, revenue: 4802.02 },
-    { id: '4', name: 'Weight Bench', sales: 87, revenue: 12165.63 },
-    { id: '5', name: 'Kettlebell 20kg', sales: 76, revenue: 6080.24 },
-  ];
+  // Calculate top selling products from actual order data
+  const topSellingProducts = useMemo(() => {
+    const productSales = {};
+    
+    orders.forEach(order => {
+      if (order.items && Array.isArray(order.items)) {
+        order.items.forEach(item => {
+          const productId = item.product?.id || item.productId;
+          if (productId) {
+            if (!productSales[productId]) {
+              productSales[productId] = {
+                id: productId,
+                name: item.product?.name || 'Unknown Product',
+                sales: 0,
+                revenue: 0,
+              };
+            }
+            productSales[productId].sales += item.quantity || 0;
+            productSales[productId].revenue += (item.product?.price || 0) * (item.quantity || 0);
+          }
+        });
+      }
+    });
 
-  const salesByCategory = [
-    { category: 'Strength Training', percentage: 45, color: '#1e3a8a' },
-    { category: 'Cardio', percentage: 25, color: '#3b82f6' },
-    { category: 'Accessories', percentage: 15, color: '#f59e0b' },
-    { category: 'Recovery', percentage: 10, color: '#8b5cf6' },
-    { category: 'Other', percentage: 5, color: '#607D8B' },
-  ];
+    return Object.values(productSales)
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 5);
+  }, [orders]);
 
-  const recentTransactions = [
-    { id: 'TRX001', date: '2024-01-15', amount: 259.99, status: 'Completed', paymentMethod: 'Credit Card' },
-    { id: 'TRX002', date: '2024-01-14', amount: 149.99, status: 'Completed', paymentMethod: 'PayPal' },
-    { id: 'TRX003', date: '2024-01-14', amount: 89.99, status: 'Pending', paymentMethod: 'Credit Card' },
-    { id: 'TRX004', date: '2024-01-13', amount: 399.99, status: 'Completed', paymentMethod: 'Apple Pay' },
-    { id: 'TRX005', date: '2024-01-13', amount: 79.99, status: 'Refunded', paymentMethod: 'Google Pay' },
-  ];
+  // Calculate sales by category from actual data
+  const salesByCategory = useMemo(() => {
+    const categoryCounts = {};
+    
+    products.forEach(product => {
+      const categoryName = product.category || 'Other';
+      categoryCounts[categoryName] = (categoryCounts[categoryName] || 0) + 1;
+    });
+
+    const total = Object.values(categoryCounts).reduce((a, b) => a + b, 0);
+    const colors = ['#1e3a8a', '#3b82f6', '#f59e0b', '#8b5cf6', '#607D8B', '#10b981'];
+    
+    return Object.entries(categoryCounts)
+      .map(([category, count], index) => ({
+        category,
+        percentage: total > 0 ? Math.round((count / total) * 100) : 0,
+        color: colors[index % colors.length],
+      }))
+      .sort((a, b) => b.percentage - a.percentage);
+  }, [products]);
+
+  // Use actual orders as recent transactions
+  const recentTransactions = useMemo(() => {
+    return orders
+      .map(order => ({
+        id: order.id || `ORD-${Date.now()}`,
+        date: order.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'N/A',
+        amount: order.total || 0,
+        status: order.status || 'Pending',
+        paymentMethod: order.paymentMethod || 'Not Specified',
+      }))
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .slice(0, 10);
+  }, [orders]);
 
   const handleGenerateReport = () => {
     Alert.alert('Generate Report', 'Report generation functionality would create a PDF/Excel report.');
