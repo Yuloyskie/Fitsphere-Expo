@@ -7,9 +7,10 @@ import { fetchProducts, fetchCategories } from '../../store/slices/productSlice'
 
 export default function AdminReportsScreen({ navigation }) {
   const dispatch = useDispatch();
-  const orders = useSelector(state => state.orders.orders);
-  const products = useSelector(state => state.products.products);
-  const categories = useSelector(state => state.products.categories);
+  const orders = useSelector(state => state.orders.allOrders) || [];
+  const products = useSelector(state => state.products.products) || [];
+  const categories = useSelector(state => state.products.categories) || [];
+  const loading = useSelector(state => state.orders.loading);
   const [selectedPeriod, setSelectedPeriod] = useState('month');
 
   // Fetch data on mount
